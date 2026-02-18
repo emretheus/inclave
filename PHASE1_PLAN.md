@@ -31,183 +31,394 @@ User uploads CSV + writes prompt
 └─────────────────────────────────────────────────────┘
 ```
 
-**Dependency chain:**
+**Dependency chain (simple → hard):**
 ```
-Step 1: Environment Setup
-    └──▶ Step 2: Ollama + Code Generation (standalone, no RAG)
-    └──▶ Step 3: CSV Schema Analyzer (standalone, no LLM)
-    └──▶ Step 4: ChromaDB + Embeddings (standalone)
-              └──▶ Step 5: RAG Pipeline with LlamaIndex
-                        └──▶ Step 6: Prompt Engine (connects everything)
-                                  └──▶ Step 7: FastAPI + CLI
-                                            └──▶ Step 8: Testing & Evaluation
+Step 1: Install & Play (no code, just get comfortable)
+    └──▶ Step 2: First Python Script (talk to Ollama from Python)
+        └──▶ Step 3: CSV Schema Analyzer (pure pandas, no LLM)
+        └──▶ Step 4: ChromaDB + Embeddings (store & search text)
+                  └──▶ Step 5: RAG Pipeline (find relevant docs)
+                            └──▶ Step 6: Prompt Engine (connect everything)
+                                      └──▶ Step 7: FastAPI + CLI (expose as API)
+                                                └──▶ Step 8: Testing & Evaluation
 ```
 
 ---
 
 ## Technology Choices (Final)
 
-| Component | Choice | Version | Why |
-|-----------|--------|---------|-----|
-| LLM | `qwen2.5-coder:14b` | via Ollama | Best price/performance, 89%+ HumanEval |
-| Embedding | `nomic-embed-text` | via Ollama | 8K context window, critical for code chunks |
-| RAG Framework | LlamaIndex | `>=0.12.0` | Retrieval-first, 40% faster, stable API |
-| Vector DB | ChromaDB | `>=0.6.0` | Zero setup, pip install, good enough for MVP |
-| API | FastAPI | `>=0.115.0` | Async, auto-docs, industry standard |
-| Python | 3.11+ | — | Required by LlamaIndex |
+| Component | Choice | Why |
+|-----------|--------|-----|
+| LLM | `qwen2.5-coder` (via Ollama) | Best open-source code model, runs locally |
+| Embedding | `nomic-embed-text` (via Ollama) | 8K context, great for code chunks |
+| RAG Framework | LlamaIndex | Simpler than LangChain, faster retrieval |
+| Vector DB | ChromaDB | `pip install` and done, no Docker needed |
+| API | FastAPI | Auto-generates docs, easy to learn |
+| Language | Python 3.11+ | Required by LlamaIndex |
 
 ---
 
-## Step 1: Environment Setup
+## Step 1: Install & Play
 
-**Owner:** Everyone (each dev sets up their own machine)
+> **Goal:** Everyone on the team installs Ollama, talks to an AI model in the terminal, and sees it generate code. No Python, no project setup — just get comfortable with the tool.
+
+**Owner:** Everyone
 **Time:** Day 1
 **Depends on:** Nothing
 
-### 1.1 Install Ollama
+### 1.1 What is Ollama?
 
+Ollama is like Docker but for AI models. You download a model, run it, and talk to it — all on your own machine. No internet needed after download, no API keys, no accounts.
+
+### 1.2 Install Ollama
+
+**macOS:**
 ```bash
-# macOS
 brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Verify
-ollama --version
 ```
 
-### 1.2 Pull Required Models
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+After install, Ollama runs as a background service automatically. Verify:
+```bash
+ollama --version
+# Should print something like: ollama version 0.5.x
+```
+
+**If you see "command not found":** Restart your terminal and try again.
+
+### 1.3 Download Your First Model
+
+Pick ONE based on your computer's RAM:
+
+| Your RAM | Model to Download | Download Size |
+|----------|-------------------|---------------|
+| 8 GB | `qwen2.5-coder:3b` | ~2 GB |
+| 16 GB | `qwen2.5-coder:7b` | ~4.5 GB |
+| 24 GB | `qwen2.5-coder:14b` | ~9 GB |
+| 32 GB+ | `qwen2.5-coder:32b` | ~20 GB |
 
 ```bash
-# Code generation model (pick ONE based on your hardware)
-ollama pull qwen2.5-coder:3b      # 8GB RAM
-ollama pull qwen2.5-coder:7b      # 16GB RAM machines
-ollama pull qwen2.5-coder:14b     # 24GB RAM machines (recommended)
-ollama pull qwen2.5-coder:32b     # 32GB+ RAM machines
+# Example for 16GB RAM machine:
+ollama pull qwen2.5-coder:7b
+```
 
-# Embedding model (everyone pulls this)
+This will take a few minutes depending on your internet speed. Wait for it to finish.
+
+Also download the embedding model (small, everyone needs this):
+```bash
 ollama pull nomic-embed-text
 ```
 
-### 1.3 Verify Models Work
+### 1.4 Talk to the Model
+
+Now the fun part. Start a chat:
 
 ```bash
-# Test code generation — should return a Python function
-ollama run qwen2.5-coder:14b "Write a Python function that reads a CSV and returns column names"
-
-# Test embedding — should return a JSON array of floats
-curl http://localhost:11434/api/embed -d '{"model": "nomic-embed-text", "input": "pandas read_csv"}'
+ollama run qwen2.5-coder:7b
 ```
 
-**Checkpoint:** Both commands return valid output. If not, check `ollama serve` is running and you have enough RAM.
+You'll see a `>>>` prompt. Try these one by one:
 
-### 1.4 Create Python Environment
-
-```bash
-cd enclave-coderunner
-
-# Create virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-
-# Install dependencies
-pip install ollama chromadb llama-index fastapi uvicorn python-dotenv pandas
-pip install llama-index-llms-ollama llama-index-embeddings-ollama llama-index-vector-stores-chroma
-
-# Verify
-python -c "import ollama, chromadb, llama_index, fastapi, pandas; print('All imports OK')"
+```
+>>> Write a Python function that adds two numbers
+>>> Write a pandas script that reads a CSV file and shows the first 5 rows
+>>> How do I find duplicate rows in a pandas DataFrame?
+>>> /bye
 ```
 
-### 1.5 Create Project Structure
+**What you should see:** The model writes Python code right in your terminal. It's not perfect, but it works. This is what we'll automate.
+
+### 1.5 Try the API (curl)
+
+Ollama also has an HTTP API at `http://localhost:11434`. This is how our Python code will talk to it later.
+
+Open a **new terminal** and try:
 
 ```bash
-mkdir -p src/{llm,rag,csv_engine,api,vectordb}
-mkdir -p data/{sample_csvs,knowledge}
+# Ask it to generate code via API
+curl http://localhost:11434/api/generate -d '{
+  "model": "qwen2.5-coder:7b",
+  "prompt": "Write a Python function to count rows in a CSV file",
+  "stream": false
+}'
+```
+
+You'll get a JSON response with the generated code inside the `"response"` field.
+
+Now test embeddings (this turns text into numbers for search):
+
+```bash
+curl http://localhost:11434/api/embed -d '{
+  "model": "nomic-embed-text",
+  "input": "pandas read_csv"
+}'
+```
+
+You'll see a JSON array of numbers. These numbers represent the "meaning" of the text — we'll use this for search later.
+
+### 1.6 Checkpoint
+
+Before moving on, make sure:
+
+- [ ] `ollama --version` works
+- [ ] You can chat with the model via `ollama run qwen2.5-coder:7b`
+- [ ] The curl API call returns generated code
+- [ ] The curl embed call returns an array of numbers
+
+**Common problems:**
+
+| Problem | Fix |
+|---------|-----|
+| "model not found" | Run `ollama pull qwen2.5-coder:7b` again |
+| curl says "connection refused" | Run `ollama serve` in a separate terminal |
+| Very slow response (minutes) | Your model is too big for your RAM — use a smaller one |
+| Computer freezes/swaps | Immediately stop Ollama (`Ctrl+C`), switch to smaller model |
+
+---
+
+## Step 2: First Python Script — Talk to Ollama from Code
+
+> **Goal:** Write a simple Python script that sends a prompt to Ollama and prints the response. Then build it into a reusable module.
+
+**Owner:** Person C (others follow along to learn)
+**Time:** Day 2-3
+**Depends on:** Step 1 (Ollama running and working)
+
+### 2.1 Set Up Python Environment
+
+```bash
+cd /path/to/enclave-coderunner
+
+# Create a virtual environment (isolates our packages)
+python3 -m venv .venv
+
+# Activate it (you need to do this every time you open a new terminal)
+source .venv/bin/activate
+
+# Your terminal should now show (.venv) at the beginning
+```
+
+**If `python3` doesn't work:** Try `python3.11` or `python3.12`. We need Python 3.11 or newer.
+
+### 2.2 Install Only What We Need Right Now
+
+Don't install everything at once. Start with just the Ollama package:
+
+```bash
+pip install ollama pandas
+```
+
+That's it for now. We'll add more packages as we need them in later steps.
+
+### 2.3 Write Your First Script
+
+Create a file called `playground.py` in the project root:
+
+**File: `playground.py`**
+```python
+"""
+Playground script — test Ollama from Python.
+Run: python playground.py
+"""
+import ollama
+
+# Step 1: Check if Ollama is running
+try:
+    models = ollama.list()
+    print("Ollama is running!")
+    print(f"Available models: {[m.model for m in models.models]}")
+except Exception as e:
+    print(f"ERROR: Can't connect to Ollama. Is it running? ({e})")
+    exit(1)
+
+# Step 2: Send a simple prompt
+print("\n--- Generating code ---\n")
+
+response = ollama.chat(
+    model="qwen2.5-coder:7b",          # change to your model
+    messages=[
+        {"role": "user", "content": "Write a Python function that reads a CSV and prints column names"}
+    ],
+)
+
+print(response["message"]["content"])
+```
+
+Run it:
+```bash
+python playground.py
+```
+
+**What you should see:** A list of your models, then generated Python code. If this works, congratulations — you've connected Python to a local AI model.
+
+### 2.4 Try System Prompts
+
+System prompts tell the model how to behave. Add this to `playground.py` (or create a new file):
+
+```python
+"""Test system prompts — the model should return ONLY code, no explanations."""
+import ollama
+
+response = ollama.chat(
+    model="qwen2.5-coder:7b",
+    messages=[
+        {
+            "role": "system",
+            "content": "You are a Python expert. Return ONLY code. No explanations, no markdown."
+        },
+        {
+            "role": "user",
+            "content": "Write a function that reads a CSV and returns the number of rows and columns"
+        }
+    ],
+    options={
+        "temperature": 0.1,    # Lower = more predictable output
+    }
+)
+
+code = response["message"]["content"]
+print(code)
+
+# Check if it's valid Python
+try:
+    compile(code, "<string>", "exec")
+    print("\n✓ Generated code is valid Python!")
+except SyntaxError as e:
+    print(f"\n✗ Syntax error in generated code: {e}")
+```
+
+### 2.5 Create the Project Structure
+
+Now that we understand how Ollama works, let's organize our code properly:
+
+```bash
+# Create folders
+mkdir -p src/llm src/rag src/csv_engine src/api src/vectordb
+mkdir -p data/sample_csvs data/knowledge
 mkdir -p tests
-touch src/__init__.py src/config.py
-touch src/llm/__init__.py src/rag/__init__.py src/csv_engine/__init__.py
-touch src/api/__init__.py src/vectordb/__init__.py
+
+# Create __init__.py files (tells Python these are packages)
+touch src/__init__.py
+touch src/llm/__init__.py
+touch src/rag/__init__.py
+touch src/csv_engine/__init__.py
+touch src/api/__init__.py
+touch src/vectordb/__init__.py
 ```
 
-### 1.6 Create Configuration
+Your project should now look like:
+```
+enclave-coderunner/
+├── .gitignore
+├── .env.example
+├── README.md
+├── PHASE1_PLAN.md
+├── playground.py           ← your test scripts
+├── src/
+│   ├── __init__.py
+│   ├── llm/
+│   │   └── __init__.py
+│   ├── rag/
+│   │   └── __init__.py
+│   ├── csv_engine/
+│   │   └── __init__.py
+│   ├── api/
+│   │   └── __init__.py
+│   └── vectordb/
+│       └── __init__.py
+├── data/
+│   ├── sample_csvs/
+│   └── knowledge/
+└── tests/
+```
+
+### 2.6 Create the Config File
 
 **File: `.env.example`**
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-CODE_MODEL=qwen2.5-coder:14b
+CODE_MODEL=qwen2.5-coder:7b
 EMBED_MODEL=nomic-embed-text
 CHROMA_PERSIST_DIR=./data/chromadb
 KNOWLEDGE_DIR=./data/knowledge
-LOG_LEVEL=INFO
 ```
+
+Copy it to create your local config:
+```bash
+cp .env.example .env
+# Edit .env if your model name is different
+```
+
+Now create a simple config loader — no fancy libraries yet, just plain Python:
 
 **File: `src/config.py`**
 ```python
-from pydantic_settings import BaseSettings
+"""
+Project configuration. Reads from .env file.
+Change values in .env, not here.
+"""
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    ollama_base_url: str = "http://localhost:11434"
-    code_model: str = "qwen2.5-coder:14b"
-    embed_model: str = "nomic-embed-text"
-    chroma_persist_dir: Path = Path("./data/chromadb")
-    knowledge_dir: Path = Path("./data/knowledge")
-    log_level: str = "INFO"
+# Load .env file
+load_dotenv()
 
-    class Config:
-        env_file = ".env"
+# Ollama settings
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+CODE_MODEL = os.getenv("CODE_MODEL", "qwen2.5-coder:7b")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
-settings = Settings()
+# Storage paths
+CHROMA_PERSIST_DIR = Path(os.getenv("CHROMA_PERSIST_DIR", "./data/chromadb"))
+KNOWLEDGE_DIR = Path(os.getenv("KNOWLEDGE_DIR", "./data/knowledge"))
 ```
 
-**File: `pyproject.toml`**
-```toml
-[project]
-name = "enclave-coderunner"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-    "ollama>=0.4.0",
-    "chromadb>=0.6.0",
-    "llama-index>=0.12.0",
-    "llama-index-llms-ollama",
-    "llama-index-embeddings-ollama",
-    "llama-index-vector-stores-chroma",
-    "fastapi>=0.115.0",
-    "uvicorn>=0.34.0",
-    "python-dotenv>=1.0.0",
-    "pandas>=2.2.0",
-    "pydantic-settings>=2.0.0",
-]
+Install `python-dotenv`:
+```bash
+pip install python-dotenv
 ```
 
-**Checkpoint:** `cp .env.example .env` → `python -c "from src.config import settings; print(settings.code_model)"` prints the model name.
+Test it:
+```bash
+python -c "from src.config import CODE_MODEL; print(f'Using model: {CODE_MODEL}')"
+# Should print: Using model: qwen2.5-coder:7b
+```
 
----
+### 2.7 Build the Ollama Wrapper Module
 
-## Step 2: Ollama Client — Basic Code Generation
-
-**Owner:** Person C
-**Time:** Day 2-3
-**Depends on:** Step 1
-
-This is the simplest possible path: prompt in → code out. No RAG, no schema analysis yet.
-
-### 2.1 Build the Ollama Wrapper
+Now move our playground code into a proper module:
 
 **File: `src/llm/ollama_client.py`**
 ```python
+"""
+Ollama client wrapper.
+Sends prompts to the local Ollama server and returns generated code.
+"""
 import ollama
-from src.config import settings
+from src.config import OLLAMA_BASE_URL, CODE_MODEL
+
 
 class CodeGenerator:
     def __init__(self):
-        self.client = ollama.Client(host=settings.ollama_base_url)
-        self.model = settings.code_model
+        self.client = ollama.Client(host=OLLAMA_BASE_URL)
+        self.model = CODE_MODEL
 
     def generate(self, prompt: str, system_prompt: str = "") -> str:
-        """Send prompt to Ollama, return generated code as string."""
+        """
+        Send a prompt to Ollama and return the response text.
+
+        Args:
+            prompt: What you want the model to do (e.g., "Write a function that...")
+            system_prompt: Instructions for how the model should behave
+
+        Returns:
+            The model's response as a string
+        """
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -217,14 +428,14 @@ class CodeGenerator:
             model=self.model,
             messages=messages,
             options={
-                "temperature": 0.1,      # Low temp for deterministic code
-                "num_predict": 2048,      # Max tokens for response
-            }
+                "temperature": 0.1,      # Low = more predictable code output
+                "num_predict": 2048,      # Max length of response
+            },
         )
         return response["message"]["content"]
 
     def health_check(self) -> bool:
-        """Verify Ollama is reachable and model is loaded."""
+        """Check if Ollama is running and our model is available."""
         try:
             self.client.show(self.model)
             return True
@@ -232,29 +443,65 @@ class CodeGenerator:
             return False
 ```
 
-### 2.2 Test It Manually
+### 2.8 Test the Module
 
 ```python
-# test_ollama_manual.py (run this, don't commit)
+# test_ollama_manual.py (run this to verify, don't commit)
 from src.llm.ollama_client import CodeGenerator
 
 gen = CodeGenerator()
-assert gen.health_check(), "Ollama not reachable or model not found"
 
+# Check connection
+if not gen.health_check():
+    print("ERROR: Can't reach Ollama or model not found!")
+    print("Make sure 'ollama serve' is running and you pulled the model.")
+    exit(1)
+
+print("Ollama connected!\n")
+
+# Test code generation
 code = gen.generate(
     system_prompt="You are a Python expert. Return only code, no explanation.",
-    prompt="Write a function that reads a CSV file and prints the first 5 rows using pandas."
+    prompt="Write a function that reads a CSV file and prints the first 5 rows using pandas.",
 )
+print("--- Generated Code ---")
 print(code)
+
+# Verify syntax
+try:
+    compile(code, "<string>", "exec")
+    print("\n✓ Valid Python syntax!")
+except SyntaxError as e:
+    print(f"\n✗ Syntax error: {e}")
 ```
 
-**Checkpoint:** Running this script prints valid Python code that uses `pd.read_csv()` and `.head()`. The code should be syntactically correct — try `compile(code, '<string>', 'exec')` to verify.
+Run: `python test_ollama_manual.py`
 
-### 2.3 What to Watch For
+### 2.9 Checkpoint
 
-- If response is slow (>30s for a short prompt), your model may be too large for your hardware. Drop to `qwen2.5-coder:7b`.
+Before moving on, make sure:
+
+- [ ] `python playground.py` runs and generates code
+- [ ] `from src.config import CODE_MODEL` works
+- [ ] `from src.llm.ollama_client import CodeGenerator` works
+- [ ] `CodeGenerator().health_check()` returns `True`
+- [ ] `CodeGenerator().generate("Write hello world")` returns Python code
+
+**Common problems:**
+
+| Problem | Fix |
+|---------|-----|
+| `ModuleNotFoundError: No module named 'src'` | Make sure you're running from the project root folder |
+| `ConnectionError` | Run `ollama serve` in another terminal |
+| Model is very slow | Switch to a smaller model in `.env` |
+| Code has markdown ``` around it | We'll handle this in Step 6 — it's expected for now |
+
+### 2.10 What to Watch For
+
+- If response is slow (>30s for a short prompt), your model is too large for your hardware. Change `CODE_MODEL` in `.env` to a smaller one.
 - `temperature: 0.1` keeps output deterministic. We'll tune this later.
 - `num_predict: 2048` caps response length. Increase if code gets truncated.
+- The model sometimes wraps code in \`\`\`python blocks — that's normal, we'll strip it later.
 
 ---
 
