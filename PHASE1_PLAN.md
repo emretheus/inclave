@@ -37,10 +37,13 @@ Step 1: Install & Play (no code, just get comfortable)
     └──▶ Step 2: First Python Script (talk to Ollama from Python)
         └──▶ Step 3: CSV Schema Analyzer (pure pandas, no LLM)
         └──▶ Step 4: ChromaDB + Embeddings (store & search text)
-                  └──▶ Step 5: RAG Pipeline (find relevant docs)
+                  └──▶ Step 5: RAG Pipeline (find relevant docs + schema-aware query)
                             └──▶ Step 6: Prompt Engine (connect everything)
-                                      └──▶ Step 7: FastAPI + CLI (expose as API)
-                                                └──▶ Step 8: Testing & Evaluation
+                                  └──▶ Step 6.5: Execution Feedback (run code, fix errors)
+                                          └──▶ Step 7: FastAPI + CLI (expose as API)
+                                                    └──▶ Step 8: Testing & Evaluation
+                                                              └──▶ Step 8.5: Few-Shot Store (save & reuse successes)
+                                                                        └──▶ Bonus Step 9: Streamlit Demo UI
 ```
 
 ---
@@ -1079,12 +1082,22 @@ class KnowledgeRetriever:
     def __init__(self):
         self.store = VectorStore(collection_name="knowledge")
 
-    def retrieve(self, query: str, top_k: int = 3, min_score: float = 0.3) -> str:
+    def retrieve(self, query: str, top_k: int = 3, min_score: float = 0.3,
+                 schema_hint: str = "") -> str:
         """
         Search for relevant chunks and format them as context string.
         Returns empty string if nothing relevant found.
+
+        schema_hint: optional column type info to enrich the query
+                     (e.g. "columns: revenue(float64), city(object)")
         """
-        results = self.store.search(query, top_k=top_k)
+        # Schema-aware query: enrich with column types so retrieval
+        # finds patterns that match the actual data types
+        enriched_query = query
+        if schema_hint:
+            enriched_query = f"{query} | {schema_hint}"
+
+        results = self.store.search(enriched_query, top_k=top_k)
 
         # Filter by minimum relevance score
         relevant = [r for r in results if r["score"] >= min_score]
@@ -1331,6 +1344,142 @@ for prompt in test_prompts:
     print(result.code[:300])
     print("...")
 ```
+
+---
+
+## Step 6.5: Execution Feedback — Run Code, Fix Errors
+
+> **Goal:** Don't deliver broken code. Run the generated code, and if it fails, feed the error back to the LLM to fix it. Simple retry loop, max 3 attempts.
+
+**Owner:** Person C
+**Time:** Day 10-11
+**Depends on:** Step 6 (pipeline producing code)
+
+### 6.5.1 Build the Code Executor
+
+**File: `src/llm/executor.py`**
+```python
+import subprocess
+import tempfile
+from pathlib import Path
+from dataclasses import dataclass
+
+@dataclass
+class ExecutionResult:
+    success: bool
+    output: str
+    error: str
+    return_code: int
+
+class CodeExecutor:
+    """Runs generated Python code in a subprocess and captures output/errors."""
+
+    def execute(self, code: str, timeout: int = 30) -> ExecutionResult:
+        """Run code in isolated subprocess. Returns output or error."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(code)
+            tmp_path = f.name
+
+        try:
+            result = subprocess.run(
+                ['python', tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(Path.cwd()),  # so relative CSV paths work
+            )
+            return ExecutionResult(
+                success=(result.returncode == 0),
+                output=result.stdout[:2000],  # cap output
+                error=result.stderr[:2000],
+                return_code=result.returncode,
+            )
+        except subprocess.TimeoutExpired:
+            return ExecutionResult(
+                success=False, output="", error="Timeout: code took too long", return_code=-1
+            )
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+```
+
+### 6.5.2 Build the Self-Healer
+
+**File: `src/llm/self_healer.py`**
+```python
+from src.llm.ollama_client import CodeGenerator
+from src.llm.executor import CodeExecutor, ExecutionResult
+
+FIX_PROMPT = """The following Python code produced an error. Fix it.
+
+Code:
+```python
+{code}
+```
+
+Error:
+{error}
+
+Return ONLY the fixed Python code, no explanations."""
+
+class SelfHealer:
+    """Try to run code, if it fails send error back to LLM to fix. Max 3 attempts."""
+
+    def __init__(self, max_attempts: int = 3):
+        self.executor = CodeExecutor()
+        self.generator = CodeGenerator()
+        self.max_attempts = max_attempts
+
+    def run_with_retry(self, code: str) -> dict:
+        """Returns {code, success, attempts, output, last_error}."""
+        for attempt in range(1, self.max_attempts + 1):
+            result = self.executor.execute(code)
+
+            if result.success:
+                return {
+                    "code": code,
+                    "success": True,
+                    "attempts": attempt,
+                    "output": result.output,
+                    "last_error": None,
+                }
+
+            # Not last attempt — ask LLM to fix
+            if attempt < self.max_attempts:
+                code = self.generator.generate(
+                    prompt=FIX_PROMPT.format(code=code, error=result.error),
+                    system_prompt="You are a Python expert. Fix the code. Return ONLY code.",
+                )
+
+        return {
+            "code": code,
+            "success": False,
+            "attempts": self.max_attempts,
+            "output": "",
+            "last_error": result.error,
+        }
+```
+
+### 6.5.3 Integrate into Pipeline
+
+Update `src/llm/pipeline.py` — at the end of `generate()`, add:
+
+```python
+# After generating code, try to run it
+from src.llm.self_healer import SelfHealer
+
+healer = SelfHealer(max_attempts=3)
+healed = healer.run_with_retry(code)
+
+# Use the healed code (may be same as original if it worked first try)
+result.code = healed["code"]
+result.execution_success = healed["success"]
+result.attempts = healed["attempts"]
+```
+
+**Checkpoint:**
+- Code that has a typo in column name → LLM gets the NameError → fixes the column name
+- Code with missing import → LLM gets ImportError → adds the import
+- Code that works on first try → returns in 1 attempt (no extra LLM calls)
 
 ---
 
@@ -1623,6 +1772,188 @@ After the first test pass, adjust prompts based on failures:
 
 ---
 
+## Step 8.5: Few-Shot Store — Learn from Successes
+
+> **Goal:** Save successful generation results so the system gets better over time. When a similar query comes in, show the LLM a proven working example.
+
+**Owner:** Person B
+**Time:** Day 14-15
+**Depends on:** Step 6.5 (execution feedback — we need to know which code actually ran)
+
+### 8.5.1 Save Successful Generations
+
+**File: `src/rag/few_shot_store.py`**
+```python
+from src.vectordb.store import VectorStore
+import json
+import hashlib
+
+class FewShotStore:
+    """Stores successful query→code pairs for retrieval as examples."""
+
+    def __init__(self):
+        self.store = VectorStore(collection_name="few_shot_examples")
+
+    def save(self, query: str, schema_summary: str, code: str):
+        """Save a successful generation as a few-shot example."""
+        doc_id = hashlib.md5(f"{query}:{schema_summary}".encode()).hexdigest()
+        text = f"Query: {query}\nSchema: {schema_summary}\nCode:\n{code}"
+        self.store.add_documents(
+            doc_ids=[doc_id],
+            texts=[text],
+            metadatas=[{"query": query, "type": "few_shot"}],
+        )
+
+    def find_similar(self, query: str, top_k: int = 1) -> str:
+        """Find similar past successful examples."""
+        results = self.store.search(query, top_k=top_k)
+        if results and results[0]["score"] >= 0.5:
+            return results[0]["text"]
+        return ""
+
+    def count(self) -> int:
+        return self.store.count()
+```
+
+### 8.5.2 Integrate into Pipeline
+
+In `pipeline.generate()`, after execution feedback confirms success:
+
+```python
+# If code ran successfully, save as few-shot example for future queries
+from src.rag.few_shot_store import FewShotStore
+
+few_shot = FewShotStore()
+if healed["success"]:
+    few_shot.save(query=user_prompt, schema_summary=schema_str[:200], code=healed["code"])
+
+# Before generating, check few-shot store for similar past examples
+similar_example = few_shot.find_similar(user_prompt)
+if similar_example:
+    # Add to prompt as "Here's a similar working example: ..."
+```
+
+**Checkpoint:**
+- After 10+ successful generations, few-shot store should have 10+ entries
+- Similar queries should retrieve relevant past examples
+- System should produce better results over time as more examples accumulate
+
+---
+
+## Bonus Step 9: Streamlit Demo UI
+
+> **Goal:** A visual interface to demo the full pipeline. Upload CSV, see schema insights, pick a prompt (or write your own), generate code, see execution results — all in one page. Not production UI, just a demo/testing tool.
+
+**Owner:** Anyone
+**Time:** Day 15-16
+**Depends on:** Step 6.5 (execution feedback), Step 8.5 (few-shot store) — but can start with just Step 3 + Step 6
+
+### 9.1 Install Streamlit
+
+```bash
+pip install streamlit
+```
+
+### 9.2 Build the Demo App
+
+**File: `streamlit_demo.py`**
+
+The UI should have these sections:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Sidebar                                                │
+│  ├── Ollama status (🟢/🟡)                              │
+│  ├── RAG stats (chunks indexed)                         │
+│  └── Few-shot count                                     │
+│                                                         │
+│  Main Area                                              │
+│  ├── CSV Upload / Sample Dataset button                 │
+│  ├── 📊 Metric Cards (rows, columns, nulls, issues)    │
+│  └── Tabs:                                              │
+│      ├── 🔍 Column Details (table)                      │
+│      ├── ⚠️ Issues (alerts)                             │
+│      ├── 💡 Insights (auto-generated)                   │
+│      ├── 📋 LLM Prompt Preview                          │
+│      └── 🤖 Code Generation                             │
+│          ├── Preset prompts (buttons)                    │
+│          ├── Custom prompt (text area)                   │
+│          ├── Generated code (syntax highlighted)        │
+│          ├── Execution result (✅/❌ + output)           │
+│          └── Attempt count (1st try / 2nd try / ...)    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Key Features
+
+```python
+# Pseudo-code for the generation tab
+import streamlit as st
+from src.llm.pipeline import CodePipeline
+from src.llm.self_healer import SelfHealer
+
+pipeline = CodePipeline()
+healer = SelfHealer(max_attempts=3)
+
+# User writes prompt or picks preset
+user_prompt = st.text_area("What do you want to do with this CSV?")
+
+if st.button("Generate Code"):
+    # 1. Pipeline generates code (schema + RAG + LLM)
+    result = pipeline.generate(csv_path, user_prompt)
+    st.code(result.code, language="python")
+
+    # 2. Execution feedback
+    healed = healer.run_with_retry(result.code)
+
+    if healed["success"]:
+        st.success(f"✅ Code runs! ({healed['attempts']} attempt(s))")
+        st.text(healed["output"])
+    else:
+        st.error(f"❌ Failed after {healed['attempts']} attempts")
+        st.code(healed["last_error"])
+```
+
+### 9.4 Preset Prompts
+
+Include dataset-specific preset prompts. For Titanic:
+
+```python
+TITANIC_PROMPTS = {
+    "🚢 Survival by Gender": "Calculate survival rate by Sex, show bar chart",
+    "💰 Class & Fare": "Average Fare by Pclass, bar chart with passenger count",
+    "👶 Age Distribution": "Histogram of Age for survived vs died, handle NaN",
+    "👨‍👩‍👧 Family Effect": "Create family_size from SibSp+Parch, survival rate by family size",
+    "🚪 Embarkation Analysis": "Survival rate and avg fare by Embarked, dual-axis chart",
+    "📊 Summary Pivot": "Pivot table: Pclass x Sex with survival rate, avg age, avg fare",
+}
+```
+
+For generic CSVs, show general-purpose prompts:
+
+```python
+GENERIC_PROMPTS = {
+    "📊 Basic Stats": "Show descriptive statistics for all numeric columns",
+    "🔍 Null Analysis": "Show null counts and percentages, suggest how to handle them",
+    "📈 Distribution": "Plot histogram for each numeric column",
+    "🔗 Correlation": "Show correlation matrix heatmap for numeric columns",
+    "📋 Top Values": "Show value counts for each categorical column",
+}
+```
+
+### 9.5 Checkpoint
+
+- Streamlit runs without errors: `streamlit run streamlit_demo.py`
+- CSV upload works and shows schema analysis
+- Preset prompts fill the text area on click
+- Code generation produces syntax-valid Python
+- Execution feedback shows ✅/❌ result with attempt count
+- Sample Titanic dataset is included for quick demo
+
+> **Not:** This is an internal demo tool, not a production UI. Keep it simple. A proper web frontend is Phase 2 scope.
+
+---
+
 ## Success Criteria Summary
 
 Phase 1 is **DONE** when all of these are true:
@@ -1634,7 +1965,10 @@ Phase 1 is **DONE** when all of these are true:
 - [ ] `/health` reports system status
 - [ ] CSV Schema Analyzer correctly extracts types, nulls, issues from test CSVs
 - [ ] RAG retrieves relevant pandas patterns for common queries
-- [ ] 7/10 test scenarios produce correct, runnable Python code
+- [ ] RAG query is enriched with schema/column type info
+- [ ] Execution feedback catches and auto-fixes broken code (max 3 retries)
+- [ ] Successful generations are saved as few-shot examples
+- [ ] 7/10 test scenarios produce correct, runnable Python code (target: 8/10 with feedback loop)
 - [ ] All unit tests pass (`pytest tests/ -v`)
 
 ---
@@ -1643,15 +1977,16 @@ Phase 1 is **DONE** when all of these are true:
 
 Explicitly out of scope — save for Phase 2/3:
 
-- ❌ Web UI (Phase 2)
-- ❌ Code execution / sandboxing (Phase 3)
+- ❌ Web UI (Phase 2) — *Streamlit demo is for internal testing only*
+- ❌ Full sandboxing / containerized execution (Phase 3) — *basic subprocess is enough for now*
 - ❌ Multi-file code generation
 - ❌ Streaming responses
 - ❌ User authentication
 - ❌ Conversation memory / multi-turn chat
 - ❌ Custom model fine-tuning
 - ❌ AST-based code chunking (use simple markdown chunking for MVP, upgrade later)
+- ❌ Agentic RAG / query routing (Phase 2 — keep retrieval simple for now)
 
 ---
 
-*Last updated: 2026-02-18*
+*Last updated: 2026-03-04*
