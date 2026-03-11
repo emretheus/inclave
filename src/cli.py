@@ -6,7 +6,8 @@ from src.rag.indexer import KnowledgeIndexer
 
 def main():
     parser = argparse.ArgumentParser(description="Enclave CodeRunner CLI")
-    parser.add_argument("--csv", required=True, help="Path to CSV file")
+    parser.add_argument("--csv", required=True, help="Path to primary CSV file")
+    parser.add_argument("--csv2", help="Path to secondary CSV file (optional, for merge operations)")
     parser.add_argument("--prompt", help="Generation prompt (interactive if omitted)")
     parser.add_argument("--index", action="store_true", help="Re-index knowledge base and exit")
     args = parser.parse_args()
@@ -19,20 +20,29 @@ def main():
 
     pipeline = CodePipeline()
 
+    # Build context note about second CSV if provided
+    csv2_note = ""
+    if args.csv2:
+        csv2_note = f"\nA second CSV file is also available at: {args.csv2}"
+
     if args.prompt:
         # Single-shot mode
-        result = pipeline.generate(args.csv, args.prompt)
+        full_prompt = args.prompt + csv2_note
+        result = pipeline.generate(args.csv, full_prompt)
         print(result.code)
     else:
         # Interactive mode
-        print(f"CSV loaded: {args.csv}")
+        print(f"Primary CSV: {args.csv}")
+        if args.csv2:
+            print(f"Secondary CSV: {args.csv2}")
         print("Type your prompts (Ctrl+C to exit):\n")
         while True:
             try:
                 prompt = input(">>> ")
                 if not prompt.strip():
                     continue
-                result = pipeline.generate(args.csv, prompt)
+                full_prompt = prompt + csv2_note
+                result = pipeline.generate(args.csv, full_prompt)
                 print(f"\n{result.code}\n")
             except KeyboardInterrupt:
                 print("\nBye.")

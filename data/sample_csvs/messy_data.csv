@@ -1,0 +1,16 @@
+id,name,age,salary,join_date,department,email,score
+1,John Doe,28,50000,2021-03-15,Engineering,john@company.com,85
+2,Jane Smith,thirty-two,62000,15/07/2020,Marketing,jane@company.com,92
+3,Bob Johnson,,45000,2019-11-22,HR,bob@company.com,78
+4,Alice Brown,35,not_a_number,2022-01-08,Engineering,alice@company.com,88
+5,Charlie Wilson,29,58000,2021-03-15,Engineering,charlie@company.com,85
+6,Diana Lee,31,71000,March 5 2020,Marketing,,95
+7,Eve Martinez,27,49000,2023-02-14,HR,eve@company.com,72
+8,Frank Taylor,28,50000,2021-03-15,Engineering,frank@company.com,85
+9,Grace Anderson,,,,Marketing,grace@company.com,
+10,Henry Thomas,45,95000,2017-08-30,Engineering,henry@company.com,91
+11,Iris Jackson,33,67000,2020-06-17,HR,,83
+12,Jack White,28,50000,2021-03-15,Engineering,jack@company.com,85
+13,Karen Harris,38,82000,2018-12-01,Marketing,karen@company.com,
+14,Liam Clark,26,44000,2024-01-10,HR,liam@company.com,76
+15,Mia Lewis,29,53000,2022-09-28,Engineering,,80
