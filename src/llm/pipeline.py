@@ -1,6 +1,7 @@
 from __future__ import annotations
 from src.llm.ollama_client import CodeGenerator
 from src.llm.prompts import SYSTEM_PROMPT, GENERATION_TEMPLATE, GENERATION_TEMPLATE_NO_RAG
+from src.llm.code_validator import CodeValidator
 from src.csv_engine.schema_analyzer import SchemaAnalyzer
 from src.rag.retriever import KnowledgeRetriever
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ class GenerationResult:
     rag_context: str
     full_prompt: str
     raw_response: str
+    warnings: list
 
 
 class CodePipeline:
@@ -29,6 +31,7 @@ class CodePipeline:
     3. Assemble prompt → system + schema + RAG context + user request
     4. Send to Ollama → get generated code
     5. Clean response → extract code block if wrapped in markdown
+    6. Validate → auto-fix missing imports
     """
 
     def __init__(self):
@@ -68,6 +71,13 @@ class CodePipeline:
 
         # 5. Clean response
         code = self._extract_code(raw_response)
+        
+        # 6. Validate and fix
+        code, warnings = CodeValidator.validate(code)
+        if warnings:
+            for w in warnings:
+                logger.warning(w)
+
 
         return GenerationResult(
             code=code,
@@ -75,6 +85,7 @@ class CodePipeline:
             rag_context=rag_context,
             full_prompt=prompt,
             raw_response=raw_response,
+            warnings=warnings,
         )
 
     def _extract_code(self, response: str) -> str:
