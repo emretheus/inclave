@@ -1,0 +1,11 @@
+ollama
+pandas
+chromadb
+fastapi
+python-multipart
+uvicorn[standard]
+python-dotenv
+streamlit
+pytest
+openpyxl
+matplotlib

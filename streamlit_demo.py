@@ -1,466 +1,380 @@
 """
-Enclave CodeRunner — Phase 1 Demo
-CSV Schema Analyzer + Ollama Code Generator
+Enclave CodeRunner — Streamlit Demo UI
 Run: streamlit run streamlit_demo.py
 """
-import streamlit as st
+import tempfile
+from pathlib import Path
+
 import pandas as pd
-import sys
-import os
+import streamlit as st
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from src.csv_engine.schema_analyzer import SchemaAnalyzer
+from src.llm.pipeline import CodePipeline
+from src.rag.indexer import KnowledgeIndexer
+from src.rag.few_shot_store import FewShotStore
 
-from src.csv_engine.schema_analyzer import SchemaAnalyzer, CSVSchema
-
-
-# ──────────────────────────────────────────────────────────────
-# Page Config
-# ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Page config
+# ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Enclave CodeRunner — Phase 1 Demo",
-    page_icon="🔬",
+    page_title="Enclave CodeRunner",
+    page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # Custom CSS
-# ──────────────────────────────────────────────────────────────
-st.markdown("""
+# ---------------------------------------------------------------------------
+st.markdown(
+    """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    .main { font-family: 'Inter', sans-serif; }
-
+    .block-container { padding-top: 1.5rem; }
     .metric-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 1px solid #0f3460;
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        border: 1px solid #3d3d5c;
         border-radius: 12px;
-        padding: 20px;
+        padding: 1.2rem;
         text-align: center;
-        color: white;
     }
-    .metric-card h3 {
-        font-size: 2rem;
-        margin: 0;
-        color: #e94560;
-    }
-    .metric-card p {
-        font-size: 0.85rem;
-        color: #a0a0b0;
-        margin: 4px 0 0 0;
-    }
-
-    .issue-card {
-        background: #2d1b1b;
-        border-left: 4px solid #e94560;
-        border-radius: 0 8px 8px 0;
-        padding: 12px 16px;
-        margin: 8px 0;
-        color: #f0f0f0;
-    }
-
-    .insight-card {
-        background: #1b2d1b;
-        border-left: 4px solid #4ecdc4;
-        border-radius: 0 8px 8px 0;
-        padding: 12px 16px;
-        margin: 8px 0;
-        color: #f0f0f0;
-    }
-
-    .prompt-chip {
+    .metric-card h3 { margin: 0; font-size: 2rem; color: #a6e3a1; }
+    .metric-card p { margin: 0; font-size: 0.85rem; color: #bac2de; }
+    .issue-badge {
+        background: #f38ba8;
+        color: #1e1e2e;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
         display: inline-block;
-        background: #16213e;
-        border: 1px solid #0f3460;
-        border-radius: 20px;
-        padding: 8px 16px;
-        margin: 4px;
-        color: #a0c4ff;
-        cursor: pointer;
-        font-size: 0.85rem;
+        margin: 2px 0;
     }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+    .success-box {
+        background: #1e3a2f;
+        border: 1px solid #a6e3a1;
+        border-radius: 8px;
+        padding: 1rem;
     }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #16213e;
-        border-radius: 8px 8px 0 0;
-        color: white;
-        padding: 10px 20px;
+    .error-box {
+        background: #3a1e1e;
+        border: 1px solid #f38ba8;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    div[data-testid="stTabs"] button {
+        font-size: 0.9rem;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
-# ──────────────────────────────────────────────────────────────
-# Titanic Preset Prompts
-# ──────────────────────────────────────────────────────────────
-TITANIC_PROMPTS = {
-    "🚢 Hayatta kalma oranı": "Cinsiyete (Sex) göre hayatta kalma oranını (Survived) hesapla ve bar chart olarak göster.",
-    "💰 Sınıf & Bilet Fiyatı": "Yolcu sınıfına (Pclass) göre ortalama bilet fiyatını (Fare) hesapla, bar chart çiz ve her sınıfın yolcu sayısını da göster.",
-    "👶 Yaş dağılımı": "Hayatta kalanlar ve ölenler için yaş (Age) dağılımını histogram olarak yan yana çiz. NaN değerleri atla.",
-    "👨‍👩‍👧 Aile etkisi": "SibSp ve Parch kolonlarından 'family_size' oluştur, aile büyüklüğüne göre hayatta kalma oranını çiz.",
-    "🚪 Biniş limanı analizi": "Embarked (biniş limanı) bazında hayatta kalma oranını ve ortalama bilet fiyatını çift eksenli grafik olarak göster.",
-    "📊 Genel özet tablo": "Pclass ve Sex gruplarına göre hayatta kalma oranı, ortalama yaş ve ortalama bilet fiyatını gösteren bir pivot tablo oluştur.",
-}
+# ---------------------------------------------------------------------------
+# Cached singletons
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def get_pipeline():
+    indexer = KnowledgeIndexer()
+    if indexer.get_stats()["total_chunks"] == 0:
+        indexer.index_knowledge_dir()
+    return CodePipeline(auto_execute=False)
 
 
-# ──────────────────────────────────────────────────────────────
-# Helper Functions
-# ──────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_analyzer():
     return SchemaAnalyzer()
 
 
-def check_ollama():
-    """Check if Ollama is reachable."""
-    try:
-        from src.llm.ollama_client import CodeGenerator
-        gen = CodeGenerator()
-        return gen.health_check(), gen
-    except Exception:
-        return False, None
-
-
-def generate_insights(schema: CSVSchema) -> list[str]:
-    """Generate human-readable insights from schema analysis."""
-    insights = []
-
-    # Row/column ratio
-    if schema.rows < 100:
-        insights.append(f"📊 **Küçük dataset** — {schema.rows} satır. Model bunu tamamını bağlamda tutabilir.")
-    elif schema.rows < 10000:
-        insights.append(f"📊 **Orta boy dataset** — {schema.rows:,} satır. Sampling gerekebilir.")
-    else:
-        insights.append(f"📊 **Büyük dataset** — {schema.rows:,} satır. Kesinlikle sampling/chunking lazım.")
-
-    # Column type breakdown
-    numeric_cols = [c for c in schema.column_info if c.dtype in ("int64", "float64")]
-    text_cols = [c for c in schema.column_info if c.dtype == "object"]
-    if numeric_cols:
-        insights.append(f"🔢 **{len(numeric_cols)} sayısal kolon** bulundu — aggregation (toplam/ortalama) sorguları yazılabilir.")
-    if text_cols:
-        insights.append(f"📝 **{len(text_cols)} text kolon** bulundu — groupby ve filtreleme için kullanılabilir.")
-
-    # Type suggestions
-    mistyped = [c for c in schema.column_info if c.suggested_type]
-    if mistyped:
-        names = ", ".join([f"`{c.name}` → {c.suggested_type}" for c in mistyped])
-        insights.append(f"🔄 **Tip dönüşümü önerisi:** {names}. Doğru tipe çevirince performans artar.")
-
-    # Null analysis
-    null_cols = [c for c in schema.column_info if c.null_pct > 0]
-    if null_cols:
-        worst = max(null_cols, key=lambda c: c.null_pct)
-        insights.append(f"🕳️ **{len(null_cols)} kolonda null var.** En kötüsü: `{worst.name}` (%{worst.null_pct}). LLM'e null handling kodu yazdırmalıyız.")
-    else:
-        insights.append("✅ **Null yok** — temiz data, ekstra handling gerekmez.")
-
-    # Duplicates
-    if any("duplicate" in issue.lower() for issue in schema.potential_issues):
-        insights.append("🔁 **Duplicate satırlar var** — `df.drop_duplicates()` gerekli. Bunu otomatik önermeliyiz.")
-
-    # High cardinality
-    for c in schema.column_info:
-        if c.dtype == "object" and c.unique_count > schema.rows * 0.9:
-            insights.append(f"🆔 `{c.name}` neredeyse tamamen unique — muhtemelen ID/identifier kolonu, groupby'da kullanma.")
-
-    return insights
-
-
-# ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # Sidebar
-# ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("## 🔬 Enclave CodeRunner")
-    st.markdown("**Phase 1 Demo** — Core Engine")
+    st.title("🧬 Enclave CodeRunner")
+    st.caption("Local AI-powered CSV code generator")
     st.divider()
 
-    # Ollama status
-    ollama_ok, gen = check_ollama()
+    # System status
+    pipeline = get_pipeline()
+    ollama_ok = pipeline.generator.health_check()
+
     if ollama_ok:
-        st.success("🟢 Ollama bağlı")
+        st.success("Ollama: Connected", icon="🟢")
     else:
-        st.warning("🟡 Ollama bağlı değil — CSV analizi çalışır, kod üretimi çalışmaz")
+        st.error("Ollama: Unreachable", icon="🔴")
+        st.info("Run `ollama serve` in a terminal to start.")
+
+    rag_stats = KnowledgeIndexer().get_stats()
+    st.metric("RAG Chunks", rag_stats["total_chunks"])
+
+    try:
+        few_shot_count = FewShotStore().count()
+        st.metric("Few-Shot Examples", few_shot_count)
+    except Exception:
+        st.metric("Few-Shot Examples", 0)
 
     st.divider()
-    st.markdown("""
-    ### Bu Demo Ne Gösteriyor?
 
-    **Step 1-3'ün birleşimi:**
-    1. 📁 Proje yapısı (config, modüller)
-    2. 🤖 Ollama client (LLM bağlantısı)
-    3. 🔍 CSV Schema Analyzer
-
-    **Insight:** Basit bir schema analizi bile
-    LLM'e çok daha iyi kod yazdırır çünkü
-    model artık veriyi "bilir".
-    """)
+    auto_execute = st.toggle("Auto-execute generated code", value=True)
+    st.caption(
+        "When enabled, code runs automatically and errors are self-healed (max 3 attempts)."
+    )
 
     st.divider()
-    st.caption("Built with Streamlit • Phase 1 / Step 1-3")
+    st.caption("Built with Ollama + ChromaDB + FastAPI")
 
 
-# ──────────────────────────────────────────────────────────────
-# Main Content
-# ──────────────────────────────────────────────────────────────
-st.markdown("# 🔬 CSV Schema Analyzer Demo")
-st.markdown("*CSV yükle → Yapıyı analiz et → İnsight'ları gör → LLM'e kod yazdır*")
-st.markdown("")
+# ---------------------------------------------------------------------------
+# Main area — CSV upload
+# ---------------------------------------------------------------------------
+st.header("Upload CSV & Generate Code")
 
-# File upload
 col_upload, col_sample = st.columns([3, 1])
-with col_upload:
-    uploaded_file = st.file_uploader("📂 CSV dosyası yükle", type=["csv"])
-with col_sample:
-    st.markdown("")
-    st.markdown("")
-    use_sample = st.button("🚢 Titanic Verisi Kullan", use_container_width=True)
 
-# Determine which file to analyze
+with col_upload:
+    uploaded_file = st.file_uploader(
+        "Upload your CSV file",
+        type=["csv"],
+        help="Max 200MB",
+    )
+
+with col_sample:
+    st.write("")
+    st.write("")
+    use_sample = st.button("📂 Use Sample Dataset", use_container_width=True)
+
+# Resolve CSV path
 csv_path = None
-tmp_path = None
+csv_df = None
 
 if use_sample:
-    csv_path = "data/sample_csvs/titanic.csv"
-    st.info("🚢 Titanic dataset yüklendi (100 yolcu, 12 kolon)")
-elif uploaded_file:
-    tmp_path = f"/tmp/uploaded_{uploaded_file.name}"
-    with open(tmp_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    csv_path = tmp_path
-    st.info(f"📂 `{uploaded_file.name}` yüklendi")
+    csv_path = "data/sample_csvs/sales_data.csv"
+    st.session_state["csv_path"] = csv_path
+elif uploaded_file is not None:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        tmp.write(uploaded_file.getvalue())
+        csv_path = tmp.name
+    st.session_state["csv_path"] = csv_path
+elif "csv_path" in st.session_state:
+    csv_path = st.session_state["csv_path"]
 
-if csv_path:
+if csv_path and Path(csv_path).exists():
+    # Analyze
     analyzer = get_analyzer()
-    is_titanic = "titanic" in csv_path.lower()
+    schema = analyzer.analyze(csv_path)
+    csv_df = pd.read_csv(csv_path)
 
-    with st.spinner("🔍 CSV analiz ediliyor..."):
-        schema = analyzer.analyze(csv_path)
-
-    # ── Metric Cards ──
-    st.markdown("### 📊 Genel Bakış")
+    # -----------------------------------------------------------------------
+    # Metric cards
+    # -----------------------------------------------------------------------
     m1, m2, m3, m4 = st.columns(4)
     with m1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>{schema.rows:,}</h3>
-            <p>Satır (Yolcu)</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><h3>{schema.rows:,}</h3><p>Rows</p></div>',
+            unsafe_allow_html=True,
+        )
     with m2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>{schema.columns}</h3>
-            <p>Kolon</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><h3>{schema.columns}</h3><p>Columns</p></div>',
+            unsafe_allow_html=True,
+        )
     with m3:
-        null_cols = len([c for c in schema.column_info if c.null_pct > 0])
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>{null_cols}</h3>
-            <p>Null İçeren Kolon</p>
-        </div>
-        """, unsafe_allow_html=True)
+        null_cols = sum(1 for c in schema.column_info if c.null_pct > 0)
+        st.markdown(
+            f'<div class="metric-card"><h3>{null_cols}</h3><p>Cols with Nulls</p></div>',
+            unsafe_allow_html=True,
+        )
     with m4:
-        issues_count = len(schema.potential_issues)
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>{issues_count}</h3>
-            <p>Tespit Edilen Sorun</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-card"><h3>{len(schema.potential_issues)}</h3><p>Issues Found</p></div>',
+            unsafe_allow_html=True,
+        )
 
-    st.markdown("")
+    st.write("")
 
-    # ── Tabs ──
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🔍 Kolon Detayları",
-        "⚠️ Sorunlar",
-        "💡 İnsight'lar",
-        "📋 LLM Prompt",
-        "🤖 Kod Üret"
-    ])
+    # -----------------------------------------------------------------------
+    # Tabs
+    # -----------------------------------------------------------------------
+    tab_cols, tab_issues, tab_preview, tab_prompt, tab_gen, tab_fewshot = st.tabs(
+        ["🔍 Column Details", "⚠️ Issues", "📄 Data Preview", "📋 Prompt Preview", "🤖 Code Generation", "🧠 Few-Shot Memory"]
+    )
 
-    # ── Tab 1: Column Details ──
-    with tab1:
+    # --- Column Details ---
+    with tab_cols:
         col_data = []
         for c in schema.column_info:
             row = {
-                "Kolon": c.name,
-                "Tip": c.dtype,
-                "Önerilen Tip": c.suggested_type or "—",
-                "Null %": f"{c.null_pct}%",
+                "Column": c.name,
+                "Type": c.dtype,
+                "Suggested": c.suggested_type or "—",
+                "Null %": f"{c.null_pct:.1f}%",
                 "Unique": c.unique_count,
-                "Örnekler": ", ".join(str(v) for v in c.sample_values[:3]),
+                "Samples": ", ".join(str(v) for v in c.sample_values[:3]),
             }
             if c.min_val is not None:
-                row["Min"] = c.min_val
-                row["Max"] = c.max_val
-                row["Ortalama"] = round(c.mean_val, 2) if c.mean_val else "—"
+                row["Range"] = f"{c.min_val} – {c.max_val}"
+                row["Mean"] = f"{c.mean_val:.1f}"
             else:
-                row["Min"] = "—"
-                row["Max"] = "—"
-                row["Ortalama"] = "—"
+                row["Range"] = "—"
+                row["Mean"] = "—"
             col_data.append(row)
+        st.dataframe(pd.DataFrame(col_data), use_container_width=True, hide_index=True)
 
-        st.dataframe(
-            pd.DataFrame(col_data),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        st.caption(f"Encoding: `{schema.encoding}` | Delimiter: `{schema.delimiter}`")
-
-    # ── Tab 2: Issues ──
-    with tab2:
+    # --- Issues ---
+    with tab_issues:
         if schema.potential_issues:
             for issue in schema.potential_issues:
-                st.markdown(f'<div class="issue-card">⚠️ {issue}</div>', unsafe_allow_html=True)
-        else:
-            st.success("✅ Hiçbir sorun tespit edilmedi — temiz CSV!")
-
-    # ── Tab 3: Insights ──
-    with tab3:
-        insights = generate_insights(schema)
-        for insight in insights:
-            st.markdown(f'<div class="insight-card">{insight}</div>', unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.markdown("#### 🧠 Neden Schema Analizi Önemli?")
-        st.markdown("""
-        LLM'e "bu CSV'yi analiz et" dersen, model **kolonu bilmez**, **tipi bilmez**, **null'ları bilmez**.
-        Uydurma kolonlara göre kod yazar.
-
-        Schema Analyzer bu bilgiyi çıkarır ve prompt'a enjekte eder:
-        - Model gerçek kolon adlarını kullanır ✅
-        - Null handling kodu ekler ✅
-        - Doğru tiplere göre işlem yapar ✅
-
-        **Sonuç:** Basit bir analiz → %80 daha az hatalı kod üretimi.
-        """)
-
-    # ── Tab 4: LLM Prompt Preview ──
-    with tab4:
-        prompt_str = schema.to_prompt_string()
-        st.markdown("#### Bu metin LLM'e gönderilir:")
-        st.code(prompt_str, language="text")
-        st.caption(f"Toplam {len(prompt_str)} karakter — modelin bağlam penceresine rahat sığar.")
-
-    # ── Tab 5: Code Generation ──
-    with tab5:
-        if not ollama_ok:
-            st.warning("⚠️ Ollama bağlı değil. Kod üretimi için Ollama'yı başlatın:")
-            st.code("ollama serve\nollama pull qwen2.5-coder:7b", language="bash")
-        else:
-            # Preset prompts (Titanic-specific if applicable)
-            if is_titanic:
-                st.markdown("#### 🎯 Hazır Promptlar (Titanic)")
-                st.caption("Bir prompt seç veya kendi sorunuzu yazın:")
-
-                prompt_cols = st.columns(3)
-                selected_preset = None
-                for i, (label, prompt_text) in enumerate(TITANIC_PROMPTS.items()):
-                    col_idx = i % 3
-                    with prompt_cols[col_idx]:
-                        if st.button(label, key=f"preset_{i}", use_container_width=True):
-                            selected_preset = prompt_text
-
-                st.markdown("")
-
-                # Text area with selected preset or empty
-                default_value = selected_preset if selected_preset else ""
-                user_prompt = st.text_area(
-                    "Bu CSV hakkında ne yapmak istiyorsun?",
-                    value=default_value,
-                    placeholder="Örnek: Cinsiyete göre hayatta kalma oranını hesapla",
-                    height=80,
-                    key="titanic_prompt",
+                st.markdown(
+                    f'<span class="issue-badge">{issue}</span>',
+                    unsafe_allow_html=True,
                 )
-            else:
-                user_prompt = st.text_area(
-                    "Bu CSV hakkında ne yapmak istiyorsun?",
-                    placeholder="Örnek: Şehir bazında toplam geliri hesapla ve bar chart çiz",
-                    height=80,
-                )
+        else:
+            st.success("No issues detected!")
 
-            if st.button("🚀 Kod Üret", type="primary", use_container_width=True):
-                if not user_prompt:
-                    st.warning("Lütfen bir prompt yaz veya hazır promptlardan birini seç.")
+    # --- Data Preview ---
+    with tab_preview:
+        st.dataframe(csv_df.head(20), use_container_width=True)
+
+    # --- Prompt Preview ---
+    with tab_prompt:
+        st.code(schema.to_prompt_string(), language="text")
+
+    # --- Code Generation ---
+    with tab_gen:
+        PRESET_PROMPTS = {
+            "📊 Basic Stats": "Show descriptive statistics for all numeric columns",
+            "🔍 Null Analysis": "Show null counts and percentages, suggest how to handle them",
+            "📈 Distribution": "Plot histogram for each numeric column",
+            "🔗 Correlation": "Show correlation matrix heatmap for numeric columns",
+            "📋 Top Values": "Show value counts for each categorical column",
+            "🗑️ Remove Duplicates": "Find and remove duplicate rows, show count before and after",
+            "📅 Parse Dates": "Convert date columns to datetime and show monthly aggregation",
+            "💰 Revenue by City": "Group by city and show total revenue per city as a bar chart",
+        }
+
+        if "user_prompt" not in st.session_state:
+            st.session_state["user_prompt"] = ""
+
+        st.write("**Quick prompts:**")
+        prompt_cols = st.columns(4)
+        for i, (label, prompt_text) in enumerate(PRESET_PROMPTS.items()):
+            with prompt_cols[i % 4]:
+                if st.button(label, use_container_width=True, key=f"preset_{i}"):
+                    st.session_state["user_prompt"] = prompt_text
+
+        user_prompt = st.text_area(
+            "Or write your own prompt:",
+            key="user_prompt",
+            height=100,
+            placeholder="e.g. Group by city and show total revenue per city",
+        )
+
+        gen_col1, gen_col2 = st.columns([1, 4])
+        with gen_col1:
+            generate_btn = st.button(
+                "🚀 Generate", type="primary", use_container_width=True
+            )
+
+        if generate_btn and user_prompt.strip():
+            pipeline.auto_execute = auto_execute
+
+            with st.spinner("Generating code..."):
+                result = pipeline.generate(csv_path, user_prompt.strip())
+
+            st.subheader("Generated Code")
+            st.code(result.code, language="python")
+
+            if auto_execute and result.execution_success is not None:
+                if result.execution_success:
+                    st.markdown(
+                        f'<div class="success-box">✅ Code executed successfully! '
+                        f"({result.attempts} attempt{'s' if result.attempts > 1 else ''})</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if result.plot_paths:
+                        st.subheader("Generated Plots")
+                        for plot_path in result.plot_paths:
+                            st.image(plot_path, use_container_width=True)
+                    if result.execution_output:
+                        st.subheader("Output")
+                        st.code(result.execution_output, language="text")
                 else:
-                    system_prompt = (
-                        "You are a Python data analysis expert. "
-                        "Return ONLY executable Python code. No explanations, no markdown fences. "
-                        "Use pandas and matplotlib. The CSV file path is provided in the context. "
-                        "Always handle NaN values appropriately. "
-                        "Use plt.show() at the end if you create any plot."
+                    st.markdown(
+                        f'<div class="error-box">❌ Code failed after {result.attempts} attempts</div>',
+                        unsafe_allow_html=True,
                     )
 
-                    full_prompt = (
-                        f"CSV file path: {csv_path}\n\n"
-                        f"CSV Schema:\n{schema.to_prompt_string()}\n\n"
-                        f"User request: {user_prompt}"
-                    )
+            with st.expander("🔧 Debug Info"):
+                st.write(f"**RAG context used:** {'Yes' if result.rag_context else 'No'}")
+                if result.rag_context:
+                    st.code(result.rag_context[:500], language="text")
+                st.write("**Full prompt sent to LLM:**")
+                st.code(result.full_prompt[:1000], language="text")
 
-                    with st.spinner("🤖 Kod üretiliyor..."):
-                        code = gen.generate(prompt=full_prompt, system_prompt=system_prompt)
+        elif generate_btn:
+            st.warning("Please enter a prompt first.")
 
-                    st.markdown("#### 📝 Üretilen Kod:")
-                    st.code(code, language="python")
+    # --- Few-Shot Memory ---
+    with tab_fewshot:
+        few_shot = FewShotStore()
 
-                    # Validate syntax
-                    try:
-                        compile(code, "<string>", "exec")
-                        st.success("✅ Geçerli Python syntax!")
-                    except SyntaxError as e:
-                        st.error(f"❌ Syntax hatası: {e}")
+        st.markdown(
+            """
+**How Few-Shot Memory works:**
+1. You generate code with a prompt → code runs successfully
+2. The query + code pair is **automatically saved** to memory
+3. Next time a **similar** query comes in, the saved example is injected into the LLM prompt
+4. LLM sees a proven working example → generates better code
 
-    # ── Data Preview ──
-    with st.expander("📋 Ham Veri (İlk 20 Satır)", expanded=False):
-        df = pd.read_csv(csv_path)
-        st.dataframe(df.head(20), use_container_width=True, hide_index=True)
+You can also **manually add** examples below to teach the system.
+"""
+        )
+
+        st.divider()
+
+        # --- Manual Training ---
+        st.subheader("Teach the System")
+        with st.form("train_form", clear_on_submit=True):
+            train_query = st.text_input(
+                "Query",
+                placeholder="e.g. Group by city and show total revenue",
+            )
+            train_code = st.text_area(
+                "Working code",
+                height=200,
+                placeholder="import pandas as pd\ndf = pd.read_csv(csv_path)\n...",
+            )
+            submitted = st.form_submit_button(
+                "💾 Save Example", type="primary"
+            )
+            if submitted and train_query.strip() and train_code.strip():
+                few_shot.save(
+                    query=train_query.strip(),
+                    schema_summary="manual training",
+                    code=train_code.strip(),
+                )
+                st.success(f"Saved! Total examples: {few_shot.count()}")
+            elif submitted:
+                st.warning("Both query and code are required.")
+
+        st.divider()
+
+        # --- Stored Examples ---
+        st.subheader(f"Stored Examples ({few_shot.count()})")
+
+        examples = few_shot.list_all()
+        if not examples:
+            st.info("No examples yet. Generate code or add manually above.")
+        else:
+            for idx, ex in enumerate(examples):
+                with st.expander(f"📝 {ex['query'][:80]}", expanded=False):
+                    st.code(ex["code"], language="python")
+                    if st.button(
+                        "🗑️ Delete",
+                        key=f"del_{ex['id']}_{idx}",
+                    ):
+                        few_shot.delete(ex["id"])
+                        st.rerun()
 
 else:
-    # Landing state — Titanic teaser
-    st.markdown("---")
-    col_left, col_right = st.columns(2)
-    with col_left:
-        st.markdown("""
-        ### 🚀 Nasıl Çalışır?
-
-        1. **CSV Yükle** veya **🚢 Titanic Verisi Kullan**
-        2. **Otomatik Analiz** — Schema Analyzer çalışır
-        3. **İnsight'lar** — Sorunları ve önerileri gör
-        4. **Kod Üret** — Hazır promptlar veya kendi sorun, LLM çalışan Python kodu üretir
-
-        *Başlamak için "🚢 Titanic Verisi Kullan" butonuna tıkla →*
-        """)
-    with col_right:
-        st.markdown("""
-        ### 🚢 Titanic Dataset Neden?
-
-        Klasik ML dataseti — zengin özellikler:
-        - **Survived** → Binary hedef (0/1)
-        - **Pclass** → Kategorik (1, 2, 3. sınıf)
-        - **Age** → Sayısal ama **null içerir**
-        - **Cabin** → **%77 null** — LLM bunu bilmeli
-        - **Fare** → Continuous, outlier'lı
-        - **Sex, Embarked** → Gruplamaya uygun
-
-        > *"Gerçek dünya verisi hiç temiz değildir."*
-        """)
-
-        st.markdown("""
-        ### 📚 Phase 1'de Ne Öğrendik?
-
-        | Adım | Öğretisi |
-        |------|---------|
-        | **Config** | Merkezi ayar → modüller loose coupled |
-        | **Ollama Client** | LLM'le konuşmak kolay, zor olan doğru prompt |
-        | **Schema Analyzer** | Verini tanı → LLM'e anlat → daha iyi kod |
-        """)
+    st.info("👆 Upload a CSV file or use the sample dataset to get started.")

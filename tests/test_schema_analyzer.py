@@ -36,3 +36,12 @@ def test_prompt_string_not_empty(analyzer):
     prompt_str = schema.to_prompt_string()
     assert len(prompt_str) > 100
     assert "sales_data.csv" in prompt_str
+
+
+def test_numeric_stats(analyzer):
+    schema = analyzer.analyze("data/sample_csvs/sales_data.csv")
+    revenue_col = next(c for c in schema.column_info if c.name == "revenue")
+    assert revenue_col.min_val is not None
+    assert revenue_col.max_val is not None
+    assert revenue_col.mean_val is not None
+    assert revenue_col.min_val < revenue_col.max_val

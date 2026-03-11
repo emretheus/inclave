@@ -1,11 +1,7 @@
-"""
-CSV Schema Analyzer.
-Takes a CSV file and produces structured schema info for LLM prompt injection.
-"""
+import csv
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
-import csv as csv_module
 
 
 @dataclass
@@ -15,11 +11,9 @@ class ColumnInfo:
     null_pct: float
     unique_count: int
     sample_values: list
-    # Numeric columns only
     min_val: float | None = None
     max_val: float | None = None
     mean_val: float | None = None
-    # Type suggestion
     suggested_type: str | None = None
 
 
@@ -34,7 +28,6 @@ class CSVSchema:
     potential_issues: list[str] = field(default_factory=list)
 
     def to_prompt_string(self) -> str:
-        """Format schema as a string for LLM prompt injection."""
         lines = [
             f"File: {self.filename} ({self.rows:,} rows, {self.columns} columns)",
             f"Encoding: {self.encoding}, Delimiter: '{self.delimiter}'",
@@ -44,7 +37,7 @@ class CSVSchema:
         for col in self.column_info:
             parts = [f"  - {col.name} ({col.dtype}"]
             if col.suggested_type:
-                parts[0] += f" → {col.suggested_type} recommended"
+                parts[0] += f" -> {col.suggested_type} recommended"
             parts[0] += f", null: {col.null_pct:.1f}%"
             parts[0] += f", {col.unique_count} unique"
             if col.min_val is not None:
@@ -58,7 +51,7 @@ class CSVSchema:
             lines.append("")
             lines.append("Potential issues:")
             for issue in self.potential_issues:
-                lines.append(f"  ⚠ {issue}")
+                lines.append(f"  ! {issue}")
 
         return "\n".join(lines)
 
@@ -90,20 +83,17 @@ class SchemaAnalyzer:
                 sample_values=sample_vals,
             )
 
-            # Numeric stats
             if pd.api.types.is_numeric_dtype(col):
                 col_info.min_val = float(col.min()) if not col.isna().all() else None
                 col_info.max_val = float(col.max()) if not col.isna().all() else None
                 col_info.mean_val = float(col.mean()) if not col.isna().all() else None
 
-            # Type suggestions
             if col.dtype == "object":
                 suggestion = self._suggest_type(col)
                 if suggestion:
                     col_info.suggested_type = suggestion
                     issues.append(f"Column '{col_name}' is string but looks like {suggestion}")
 
-            # Null warning
             if 0 < null_pct <= 50:
                 issues.append(f"Column '{col_name}' has {null_pct:.1f}% null values")
             elif null_pct > 50:
@@ -111,7 +101,6 @@ class SchemaAnalyzer:
 
             columns.append(col_info)
 
-        # Duplicate check
         dup_count = df.duplicated().sum()
         if dup_count > 0:
             issues.append(f"{dup_count} duplicate rows found")
@@ -127,7 +116,6 @@ class SchemaAnalyzer:
         )
 
     def _detect_encoding(self, path: Path) -> str:
-        """Try utf-8 first, fall back to latin-1."""
         for enc in ["utf-8", "latin-1", "cp1252"]:
             try:
                 with open(path, encoding=enc) as f:
@@ -138,34 +126,30 @@ class SchemaAnalyzer:
         return "utf-8"
 
     def _detect_delimiter(self, path: Path, encoding: str) -> str:
-        """Detect delimiter by checking first line."""
         with open(path, encoding=encoding) as f:
             sample = f.read(4096)
-            sniffer = csv_module.Sniffer()
+            sniffer = csv.Sniffer()
             try:
                 dialect = sniffer.sniff(sample)
                 return dialect.delimiter
-            except csv_module.Error:
+            except csv.Error:
                 return ","
 
     def _suggest_type(self, col: pd.Series) -> str | None:
-        """Check if a string column might actually be datetime or numeric."""
+        import warnings
         sample = col.dropna().head(20)
         if len(sample) == 0:
             return None
-
-        # Try datetime
         try:
-            pd.to_datetime(sample)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                pd.to_datetime(sample)
             return "datetime"
         except (ValueError, TypeError):
             pass
-
-        # Try numeric
         try:
             pd.to_numeric(sample)
             return "numeric"
         except (ValueError, TypeError):
             pass
-
         return None
