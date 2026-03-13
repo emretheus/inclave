@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 SYSTEM_PROMPT = """You are a Python data analyst and developer.
 You generate clean, runnable Python code that works with CSV files.
 

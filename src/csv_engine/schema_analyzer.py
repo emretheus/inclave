@@ -93,7 +93,7 @@ class SchemaAnalyzer:
                 col_info.mean = float(col.mean()) if not col.isna().all() else None
 
             # Type suggestions
-            if col.dtype == "object":
+            if col.dtype == "object" or col.dtype == "str":
                 suggestion = self._suggest_type(col)
                 if suggestion:
                     col_info.suggested_type = suggestion
@@ -145,7 +145,7 @@ class SchemaAnalyzer:
             except csv.Error:
                 return ","
 
-    def _suggest_type(self, col: pd.Series) -> Optional[str]:
+    def _suggest_type(self, col: pd.Series) -> str | None:
         """Check if a string column might actually be datetime or numeric."""
         sample = col.dropna().head(20)
         if len(sample) == 0:
@@ -153,8 +153,9 @@ class SchemaAnalyzer:
 
         # Try datetime
         try:
-            pd.to_datetime(sample)
-            return "datetime"
+            result = pd.to_datetime(sample, format="mixed", dayfirst=False)
+            if result is not None:
+                return "datetime"
         except (ValueError, TypeError):
             pass
 

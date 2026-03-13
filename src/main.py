@@ -1,4 +1,3 @@
-from __future__ import annotations
 import uvicorn
 from src.api.routes import app
 from src.rag.indexer import KnowledgeIndexer

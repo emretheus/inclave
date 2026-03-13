@@ -1,4 +1,3 @@
-from __future__ import annotations
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from src.llm.pipeline import CodePipeline

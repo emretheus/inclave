@@ -1,4 +1,3 @@
-from __future__ import annotations
 import argparse
 from src.llm.pipeline import CodePipeline
 from src.rag.indexer import KnowledgeIndexer

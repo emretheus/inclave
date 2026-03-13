@@ -1,4 +1,3 @@
-from __future__ import annotations
 from src.vectordb.store import VectorStore
 from src.rag.chunking import MarkdownCodeChunker
 from src.config import settings

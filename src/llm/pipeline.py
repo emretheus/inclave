@@ -1,4 +1,3 @@
-from __future__ import annotations
 from src.llm.ollama_client import CodeGenerator
 from src.llm.prompts import SYSTEM_PROMPT, GENERATION_TEMPLATE, GENERATION_TEMPLATE_NO_RAG
 from src.llm.code_validator import CodeValidator
