@@ -92,3 +92,6 @@ src/
 ## License
 
 TBD
+
+## Architecture
+![Flow Diagram](docs/flow_diagram.png)
