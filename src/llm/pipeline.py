@@ -1,3 +1,4 @@
+from src.llm.classifier import QueryClassifier, QueryCategory
 from src.llm.judge import JudgeAgent
 from src.cache.semantic_cache import SemanticCache
 from src.llm.ollama_client import CodeGenerator
@@ -43,6 +44,7 @@ class CodePipeline:
         self.retriever = KnowledgeRetriever()
         self.cache = SemanticCache()
         self.judge = JudgeAgent()
+        self.classifier = QueryClassifier() 
 
     def generate(self, csv_path: str, user_prompt: str) -> GenerationResult:
         # 1. Analyze CSV
@@ -64,9 +66,20 @@ class CodePipeline:
                 warnings=[],
             )
 
+        # ★ CLASSIFY — determine query type for routing
+        classification = self.classifier.classify(user_prompt)
+        logger.info(f"Query classified as: {classification.category.value} "
+                    f"(confidence: {classification.confidence:.2f}, method: {classification.method})")
+
+        # Skip RAG for simple queries — faster response
+        skip_rag = classification.category == QueryCategory.SIMPLE
+        skip_judge = classification.category == QueryCategory.SIMPLE
+
         # 2. Retrieve relevant patterns
         logger.info(f"Retrieving context for: {user_prompt}")
-        rag_context = self.retriever.retrieve(user_prompt, top_k=3)
+        rag_context = ""
+        if not skip_rag:
+            rag_context = self.retriever.retrieve(user_prompt, top_k=3)
 
         # 3. Assemble prompt
         if rag_context:
@@ -97,18 +110,22 @@ class CodePipeline:
             for w in warnings:
                 logger.warning(w)
 
-        # ★ JUDGE STEP — validate logic correctness
-        verdict = self.judge.review(
-            user_prompt=user_prompt,
-            csv_schema=schema_str,
-            code=code,
-        )
-        logger.info(f"Judge verdict: {verdict.verdict}")
+        # ★ JUDGE STEP — validate logic correctness & skip for simple queries
+        if not skip_judge:
+            verdict = self.judge.review(
+                user_prompt=user_prompt,
+                csv_schema=schema_str,
+                code=code,
+            )
+            logger.info(f"Judge verdict: {verdict.verdict}")
 
-        if verdict.verdict == "FAIL" and verdict.suggested_fix:
-            logger.info("Judge found issues — applying suggested fix")
-            code = verdict.suggested_fix
-            code, warnings = CodeValidator.validate(code)
+            if verdict.verdict == "FAIL" and verdict.suggested_fix:
+                logger.info("Judge found issues — applying suggested fix")
+                code = verdict.suggested_fix
+                code, warnings = CodeValidator.validate(code)
+
+        else:
+            logger.info("Simple query — skipping judge")
 
         # ★ CACHE STORE — save for future similar queries
         self.cache.store_result(
