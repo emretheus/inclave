@@ -1,3 +1,5 @@
+from src.llm.judge import JudgeAgent
+from src.cache.semantic_cache import SemanticCache
 from src.llm.ollama_client import CodeGenerator
 from src.llm.prompts import SYSTEM_PROMPT, GENERATION_TEMPLATE, GENERATION_TEMPLATE_NO_RAG
 from src.llm.code_validator import CodeValidator
@@ -18,6 +20,8 @@ class GenerationResult:
     full_prompt: str
     raw_response: str
     warnings: list
+    judge_verdict: str = "SKIPPED"
+    judge_issues: list = None
 
 
 class CodePipeline:
@@ -37,12 +41,28 @@ class CodePipeline:
         self.generator = CodeGenerator()
         self.analyzer = SchemaAnalyzer()
         self.retriever = KnowledgeRetriever()
+        self.cache = SemanticCache()
+        self.judge = JudgeAgent()
 
     def generate(self, csv_path: str, user_prompt: str) -> GenerationResult:
         # 1. Analyze CSV
         logger.info(f"Analyzing CSV: {csv_path}")
         schema = self.analyzer.analyze(csv_path)
         schema_str = schema.to_prompt_string()
+        schema_fp = self._schema_fingerprint(schema)
+
+        # ★ CACHE CHECK — return instantly if similar query exists
+        cached = self.cache.lookup(user_prompt, schema_fp)
+        if cached:
+            logger.info("Cache HIT — returning cached result")
+            return GenerationResult(
+                code=cached.code,
+                csv_schema=schema_str,
+                rag_context="[from cache]",
+                full_prompt="[from cache]",
+                raw_response="[from cache]",
+                warnings=[],
+            )
 
         # 2. Retrieve relevant patterns
         logger.info(f"Retrieving context for: {user_prompt}")
@@ -77,6 +97,25 @@ class CodePipeline:
             for w in warnings:
                 logger.warning(w)
 
+        # ★ JUDGE STEP — validate logic correctness
+        verdict = self.judge.review(
+            user_prompt=user_prompt,
+            csv_schema=schema_str,
+            code=code,
+        )
+        logger.info(f"Judge verdict: {verdict.verdict}")
+
+        if verdict.verdict == "FAIL" and verdict.suggested_fix:
+            logger.info("Judge found issues — applying suggested fix")
+            code = verdict.suggested_fix
+            code, warnings = CodeValidator.validate(code)
+
+        # ★ CACHE STORE — save for future similar queries
+        self.cache.store_result(
+            query=user_prompt,
+            schema_fingerprint=schema_fp,
+            code=code,
+        )
 
         return GenerationResult(
             code=code,
@@ -103,3 +142,11 @@ class CodePipeline:
 
         # No code blocks found, return as-is
         return response.strip()
+
+    def _schema_fingerprint(self, schema) -> str:
+        """Create a unique fingerprint for a CSV schema."""
+        import hashlib
+        content = "|".join(
+            f"{col.name}:{col.dtype}" for col in schema.column_info
+        )
+        return hashlib.md5(content.encode()).hexdigest()[:12]
