@@ -1,0 +1,563 @@
+=== BAŞARILI TEST SENARYOLARI RAPORU ===
+
+Sorgu: Show the first 5 rows
+Veri Seti: data/sample_csvs/employees.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/employees.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Display the first 5 rows of the dataframe
+    print(df.head())
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+emp_id         name    department   salary   hire_date      status
+0     101     John Doe   Engineering  85000.0  2020-01-15      Active
+1     102   Jane Smith            HR  65000.0  12/05/2019      Active
+2     103     Bob Boss    Management      NaN  2015-05-20     OnLeave
+3     104   Alice Data  Data Science  95000.0  2022-11-01      Active
+4     105  Charlie Ops    Operations  55000.0  03/15/2021  Terminated
+============================================================
+
+Sorgu: Plot monthly temperature trend
+Veri Seti: data/sample_csvs/weather.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/weather.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Convert 'date' column to datetime
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Handle missing values in 'temp_c'
+    df['temp_c'].fillna(df['temp_c'].mean(), inplace=True)
+    
+    # Group by month and calculate the mean temperature
+    monthly_temp = df.groupby(df['date'].dt.to_period('M'))['temp_c'].mean().reset_index()
+    
+    # Print the monthly temperature trend
+    print(monthly_temp)
+
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+date      temp_c
+0  2024-01  229.633333
+============================================================
+
+Sorgu: Find outliers using IQR method for temp_c
+Veri Seti: data/sample_csvs/weather.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/weather.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Convert 'date' column to datetime
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Handle missing values in 'temp_c'
+    temp_mean = df['temp_c'].mean()
+    df['temp_c'].fillna(temp_mean, inplace=True)
+    
+    # Calculate the IQR for 'temp_c'
+    Q1 = df['temp_c'].quantile(0.25)
+    Q3 = df['temp_c'].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    # Define outliers as values below (Q1 - 1.5 * IQR) or above (Q3 + 1.5 * IQR)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    # Find outliers
+    outliers = df[(df['temp_c'] < lower_bound) | (df['temp_c'] > upper_bound)]
+    
+    # Print the outliers
+    print("Outliers in 'temp_c':")
+    print(outliers[['date', 'temp_c']])
+    
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Outliers in 'temp_c':
+        date  temp_c
+2 2024-01-03   999.0
+3 2024-01-04    -2.5
+9 2024-01-10   999.0
+============================================================
+
+Sorgu: Group by department and show average salary
+Veri Seti: data/sample_csvs/employees.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/employees.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Check for null values in the 'salary' column and fill them with the mean salary
+    df['salary'] = df['salary'].fillna(df['salary'].mean())
+    
+    # Group by department and calculate the average salary
+    result = df.groupby('department')['salary'].mean().reset_index()
+    
+    # Rename columns for clarity
+    result.columns = ['Department', 'Average Salary']
+    
+    # Print the result
+    print(result)
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Department  Average Salary
+0  Data Science    95000.000000
+1   Engineering    80333.333333
+2            HR    65000.000000
+3            IT    72125.000000
+4    Management    72250.000000
+5    Operations    55000.000000
+6         Sales    50000.000000
+============================================================
+
+Sorgu: Read this file, clean stock_level column to be numeric, and show it
+Veri Seti: data/sample_csvs/messy_data.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/messy_data.csv'
+
+try:
+    # Read the CSV file with specified encoding and delimiter
+    df = pd.read_csv(csv_path, encoding='utf-8', delimiter=';')
+    
+    # Display the first few rows of the dataframe
+    print(df.head())
+    
+    # Handle missing values in 'price' column by filling them with the mean
+    df['price'] = df['price'].fillna(df['price'].mean())
+    
+    # Convert 'stock_level' to numeric, coercing errors to NaN and then filling them with the median
+    df['stock_level'] = pd.to_numeric(df['stock_level'], errors='coerce')
+    df['stock_level'] = df['stock_level'].fillna(df['stock_level'].median())
+    
+    # Display the cleaned 'stock_level' column
+    print(df[['id', 'product_name', 'price', 'stock_level']])
+    
+except FileNotFoundError:
+    print("The file was not found. Please check the file path.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+id product_name    price stock_level
+0   1       Laptop  1200.00          45
+1   2        Mouse    25.50         Ten
+2   3     Keyboard      NaN          15
+3   4      Monitor   300.00         NaN
+4   5      Desk_??   150.75           5
+   id product_name       price  stock_level
+0   1       Laptop  1200.00000         45.0
+1   2        Mouse    25.50000         12.0
+2   3     Keyboard   236.46875         15.0
+3   4      Monitor   300.00000         12.0
+4   5      Desk_??   150.75000          5.0
+5   6        Chair    85.00000         12.0
+6   7       Webcam   236.46875         12.0
+7   8      Headset   110.00000          8.0
+8   9      USB_Hub    15.00000          0.0
+9  10        Cable     5.50000        100.0
+============================================================
+
+Sorgu: Show the first 5 rows
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Display the first 5 rows of the dataframe
+    print(df.head())
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+PassengerId  Survived  Pclass  ...     Fare Cabin  Embarked
+0            1         0       3  ...   7.2500   NaN         S
+1            2         1       1  ...  71.2833   C85         C
+2            3         1       3  ...   7.9250   NaN         S
+3            4         1       1  ...  53.1000  C123         S
+4            5         0       3  ...   8.0500   NaN         S
+
+[5 rows x 12 columns]
+============================================================
+
+Sorgu: Calculate the overall survival rate
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Calculate the overall survival rate
+    survival_rate = df['Survived'].mean() * 100
+    
+    # Print the result
+    print(f"Overall Survival Rate: {survival_rate:.2f}%")
+except FileNotFoundError:
+    print("The file was not found. Please check the file path.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Overall Survival Rate: 38.38%
+============================================================
+
+Sorgu: Fill missing Age values with the median age
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Check for null values in the 'Age' column before filling
+    print("Null values in 'Age' before filling:", df['Age'].isnull().sum())
+    
+    # Fill missing 'Age' values with the median age
+    median_age = df['Age'].median()
+    df['Age'] = df['Age'].fillna(median_age)
+    
+    # Check for null values in the 'Age' column after filling
+    print("Null values in 'Age' after filling:", df['Age'].isnull().sum())
+    
+    # Display the first few rows of the dataframe to verify changes
+    print(df.head())
+
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Null values in 'Age' before filling: 177
+Null values in 'Age' after filling: 0
+   PassengerId  Survived  Pclass  ...     Fare Cabin  Embarked
+0            1         0       3  ...   7.2500   NaN         S
+1            2         1       1  ...  71.2833   C85         C
+2            3         1       3  ...   7.9250   NaN         S
+3            4         1       1  ...  53.1000  C123         S
+4            5         0       3  ...   8.0500   NaN         S
+
+[5 rows x 12 columns]
+============================================================
+
+Sorgu: Group by Sex and show the survival rate
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Check for null values in the 'Embarked' column and fill with mode
+    df['Embarked'] = df['Embarked'].fillna(df['Embarked'].mode()[0])
+    
+    # Group by 'Sex' and calculate survival rate
+    survival_rate = df.groupby('Sex')['Survived'].mean().reset_index()
+    survival_rate.columns = ['Sex', 'Survival Rate']
+    
+    # Print the result
+    print(survival_rate)
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Sex  Survival Rate
+0  female       0.742038
+1    male       0.188908
+============================================================
+
+Sorgu: Show the average Fare grouped by Pclass
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Check for null values in the 'Fare' column
+    if df['Fare'].isnull().sum() > 0:
+        print("Warning: The 'Fare' column contains null values. Filling with mean.")
+        df['Fare'] = df['Fare'].fillna(df['Fare'].mean())
+    
+    # Group by 'Pclass' and calculate the average 'Fare'
+    result = df.groupby('Pclass')['Fare'].mean().reset_index()
+    
+    # Rename columns for clarity
+    result.columns = ['Passenger Class', 'Average Fare']
+    
+    # Print the result
+    print(result)
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Passenger Class  Average Fare
+0                1     84.154687
+1                2     20.662183
+2                3     13.675550
+============================================================
+
+Sorgu: Find the oldest passenger who survived
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Display the first few rows of the dataframe
+    print(df.head())
+    
+    # Filter the dataframe to include only survived passengers
+    survivors = df[df['Survived'] == 1]
+    
+    # Find the oldest passenger among the survivors
+    if not survivors.empty:
+        oldest_survivor = survivors[survivors['Age'] == survivors['Age'].max()]
+        
+        # Display the details of the oldest survivor
+        print("The oldest passenger who survived:")
+        print(oldest_survivor[['PassengerId', 'Name', 'Age']])
+    else:
+        print("No passengers survived.")
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+PassengerId  Survived  Pclass  ...     Fare Cabin  Embarked
+0            1         0       3  ...   7.2500   NaN         S
+1            2         1       1  ...  71.2833   C85         C
+2            3         1       3  ...   7.9250   NaN         S
+3            4         1       1  ...  53.1000  C123         S
+4            5         0       3  ...   8.0500   NaN         S
+
+[5 rows x 12 columns]
+The oldest passenger who survived:
+     PassengerId                                  Name   Age
+630          631  Barkworth, Mr. Algernon Henry Wilson  80.0
+============================================================
+
+Sorgu: Count the number of passengers from each Embarked port
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Group by 'Embarked' and count the number of passengers from each port
+    embarked_counts = df.groupby('Embarked')['PassengerId'].count().reset_index()
+    embarked_counts.columns = ['Embarked', 'PassengerCount']
+    
+    # Print the result
+    print(embarked_counts)
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Embarked  PassengerCount
+0        C             168
+1        Q              77
+2        S             644
+============================================================
+
+Sorgu: Filter the dataframe to show only female passengers in 1st class
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Filter the dataframe to show only female passengers in 1st class
+    filtered_df = df[(df['Sex'] == 'female') & (df['Pclass'] == 1)]
+    
+    # Print the filtered dataframe
+    print(filtered_df)
+
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+PassengerId  Survived  Pclass  ...      Fare Cabin  Embarked
+1              2         1       1  ...   71.2833   C85         C
+3              4         1       1  ...   53.1000  C123         S
+11            12         1       1  ...   26.5500  C103         S
+31            32         1       1  ...  146.5208   B78         C
+52            53         1       1  ...   76.7292   D33         C
+..           ...       ...     ...  ...       ...   ...       ...
+856          857         1       1  ...  164.8667   NaN         S
+862          863         1       1  ...   25.9292   D17         S
+871          872         1       1  ...   52.5542   D35         S
+879          880         1       1  ...   83.1583   C50         C
+887          888         1       1  ...   30.0000   B42         S
+
+[94 rows x 12 columns]
+============================================================
+
+Sorgu: Create a bar chart showing the number of survivors by Pclass
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Check for null values in the 'Age' column and fill with mean
+    df['Age'] = df['Age'].fillna(df['Age'].mean())
+    
+    # Drop rows where 'Embarked' is null (0.2% of data, safe to drop)
+    df_clean = df.dropna(subset=['Embarked'])
+    
+    # Group by Pclass and count the number of survivors
+    survival_by_class = df_clean.groupby('Pclass')['Survived'].sum()
+    
+    # Print the result
+    print(survival_by_class)
+
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+Pclass
+1    134
+2     87
+3    119
+Name: Survived, dtype: int64
+============================================================
+
+Sorgu: Drop the Cabin column and print the new columns list
+Veri Seti: data/sample_csvs/Titanic-Dataset.csv
+----------------------------------------
+💻 ÜRETİLEN KOD:
+import pandas as pd
+
+# Set the CSV file path
+csv_path = r'data/sample_csvs/Titanic-Dataset.csv'
+
+try:
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Drop the Cabin column
+    df.drop(columns=['Cabin'], inplace=True)
+    
+    # Print the new columns list
+    print(df.columns.tolist())
+except FileNotFoundError:
+    print(f"Error: The file at {csv_path} was not found.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+----------------------------------------
+📊 ÇIKTI (TERMINAL):
+['PassengerId', 'Survived', 'Pclass', 'Name', 'Sex', 'Age', 'SibSp', 'Parch', 'Ticket', 'Fare', 'Embarked']
+============================================================
+

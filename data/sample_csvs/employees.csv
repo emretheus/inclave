@@ -1,0 +1,11 @@
+emp_id,name,department,salary,hire_date,status
+101,John Doe,Engineering,85000,2020-01-15,Active
+102,Jane Smith,HR,65000,12/05/2019,Active
+103,Bob Boss,Management,,2015-05-20,OnLeave
+104,Alice Data,Data Science,95000,2022-11-01,Active
+105,Charlie Ops,Operations,55000,03/15/2021,Terminated
+106,Eve Hacker,Engineering,88000,2023-01-10,Active
+107,Mallory Secure,IT,,10/10/2018,Active
+108,Trent Network,IT,72000,2019-07-22,Active
+109,Peggy QA,Engineering,68000,01/25/2020,OnLeave
+110,Victor Sales,Sales,50000,2021-09-30,Active
