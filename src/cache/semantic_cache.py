@@ -68,6 +68,26 @@ class SemanticCache:
 
         return None
 
+
+    def invalidate(self, schema_fingerprint: str):
+        """
+        Belirli bir şemaya (dosya yapısına) ait tüm önbellek kayıtlarını siler.
+        """
+        # 1. Bu şemaya ait kayıtları bul (Arama metni üzerinden)
+        search_text = f"[schema:{schema_fingerprint}]"
+        results = self.store.search(search_text, top_k=100) # Ham sonuçları almak için
+        
+        # 2. Metadata doğrulaması yaparak ID'leri filtrele
+        ids_to_delete = [
+            r["id"] for r in results 
+            if r["metadata"].get("schema_fingerprint") == schema_fingerprint
+        ]
+        
+        # 3. VectorStore üzerinden silme işlemini yap
+        if ids_to_delete:
+            self.store.delete(ids_to_delete)
+
+
     def store_result(self, query: str, schema_fingerprint: str, code: str, execution_output: str = ""):
         """Başarılı olan kodu, gelecekte kopya çekmek üzere veritabanına kaydeder."""
         cache_text = self._make_cache_text(query, schema_fingerprint)
@@ -100,3 +120,12 @@ class SemanticCache:
             "total_hits": self.total_hits,
             "similarity_threshold": SIMILARITY_THRESHOLD,
         }
+
+    def remove_query(self, query: str, schema_fingerprint: str):
+        """Kullanıcının beğenmediği sorguyu önbellekten (Semantic Cache) nokta atışı siler."""
+        doc_id = hashlib.md5(f"{query.lower().strip()}:{schema_fingerprint}".encode()).hexdigest()
+        try:
+            self.store.delete([doc_id])
+            print(f"🗑️ [Semantic Cache] '{query}' başarıyla silindi.")
+        except Exception as e:
+            print(f"⚠️ [Semantic Cache] Silme hatası veya kayıt yok: {e}")

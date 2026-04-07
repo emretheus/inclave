@@ -1,39 +1,13 @@
-import re
-from src.llm.ollama_client import CodeGenerator
-from src.llm.executor import CodeExecutor
-from src.config import MAX_HEAL_ATTEMPTS
+# 1. ADIM: DOSYANIN EN ÜSTÜNE ŞU İKİ KÜTÜPHANEYİ EKLE:
 import sys
 import subprocess
 
-FIX_PROMPT = """The following Python code produced an error. Fix it.
-
-Code:
-```python
-{code}
-```
-Error:
-{error}
-
-Return ONLY the fixed Python code, no explanations."""
-
+# ... (Mevcut diğer importların ve FIX_PROMPT değişkenin aynı kalacak) ...
 
 class SelfHealer:
-    """Kodu çalıştırmayı dener. Eğer hata verirse (fail), hatayı LLM'e gönderip kodu düzelttirir. Maksimum 3 deneme yapar."""
+    # ... (__init__ ve _extract_code metodların aynı kalacak) ...
 
-    def __init__(self, max_attempts: int = MAX_HEAL_ATTEMPTS):
-        self.executor = CodeExecutor()
-        self.generator = CodeGenerator()
-        self.max_attempts = max_attempts
-
-    def _extract_code(self, response: str) -> str:
-        pattern = r'```(?:python)?\s*\n(.*?)```'
-        match = re.search(pattern, response, re.DOTALL)
-
-        if match:
-            return match.group(1).strip()
-
-        return response.strip()
-
+    # 2. ADIM: _extract_code METODUNUN BİTTİĞİ YERE, HEMEN ALTINA BU YENİ METODU EKLE:
     def _auto_install_missing_module(self, error_message: str) -> bool:
         """ModuleNotFoundError hatasını yakalar ve eksik paketi arka planda pip ile kurar."""
         match = re.search(r"ModuleNotFoundError: No module named '([^']+)'", error_message)
@@ -70,6 +44,8 @@ class SelfHealer:
             print(f"❌ [Auto-Install] Sistem hatası: {e}")
             return False
 
+
+    # 3. ADIM: MEVCUT "run_with_retry" METODUNU TAMAMEN SİL VE YERİNE BUNU YAPIŞTIR:
     def run_with_retry(self, code: str) -> dict:
         """
         Döngü halinde kodu çalıştırır ve hataları düzeltir.
@@ -83,7 +59,7 @@ class SelfHealer:
             # Kodu Sandbox'ta çalıştır
             result = self.executor.execute(code)
 
-            # 2. Eğer başarılıysa, mükemmel! Döngüden çık ve sonucu döndür.
+            # Başarılıysa döngüden çık
             if result.success:
                 return {
                     "code": code,
@@ -109,7 +85,6 @@ class SelfHealer:
                     prompt=FIX_PROMPT.format(code=code, error=result.error),
                     system_prompt="You are a Python expert. Fix the code. Return ONLY code.",
                 )
-
                 code = self._extract_code(raw_response)
 
             attempt += 1

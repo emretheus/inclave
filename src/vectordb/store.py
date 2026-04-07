@@ -63,6 +63,13 @@ class VectorStore:
                 })
         return items
 
+
+    def delete(self, doc_ids: list[str]):
+        """Belirtilen ID'lere sahip dökümanları koleksiyondan siler."""
+        if doc_ids:
+            self.collection.delete(ids=doc_ids)
+
+
     def count(self) -> int:
         return self.collection.count()
 

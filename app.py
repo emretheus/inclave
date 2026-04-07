@@ -7,6 +7,10 @@ from src.rag.indexer import KnowledgeIndexer
 import subprocess
 import time
 import urllib.request
+import uuid
+from src.config import PIPELINE_MODE
+import glob
+
 
 # Sayfa ayarlarını yapıyoruz (Geniş ekran modu ve sekme başlığı)
 st.set_page_config(page_title="Enclave CodeRunner", page_icon="🤖", layout="wide")
@@ -18,6 +22,18 @@ def load_system():
     return CodePipeline(), KnowledgeIndexer()
 
 pipeline, indexer = load_system()
+
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = str(uuid.uuid4())
+
+if "messages" not in st.session_state:
+    st.session_state["messages"] = [
+        {
+            "role": "assistant",
+            "type": "text",
+            "content": "👋 Merhaba! Veri setinle ilgili bana dilediğini sorabilirsin. Sorgularını anımsayabilirim."
+        }
+    ]
 
 # --- 1. SOL YAN PANEL (SIDEBAR) ---
 with st.sidebar:
@@ -49,7 +65,7 @@ with st.sidebar:
     st.metric(label="🧠 Hafızadaki Başarılı Kodlar", value=few_shot_count)
     st.markdown("---")
 
-    # YENİ: OLLAMA KONTROL PANELİ
+    #  OLLAMA KONTROL PANELİ
     st.subheader("🦙 Ollama Kontrolü")
 
     def start_ollama():
@@ -59,7 +75,7 @@ with st.sidebar:
         except Exception:
             return False
 
-    # Sadece Ollama kapalıysa başlatma butonunu göster! (Mükemmel UX)
+   
     # Sadece Ollama kapalıysa başlatma butonunu göster!
     if not ollama_active:
         if st.button("🔌 Ollama'yı Başlat", use_container_width=True):
@@ -71,7 +87,7 @@ with st.sidebar:
                     st.error("Başlatılamadı!")
     else:
         st.info("Ollama şu an hizmet vermeye hazır.")
-        # YENİ: OLLAMA AÇIKKEN GÖRÜNECEK "KAPAT" BUTONU
+        # OLLAMA AÇIKKEN GÖRÜNECEK "KAPAT" BUTONU
         if st.button("🛑 Ollama'yı Kapat", use_container_width=True):
             with st.spinner("Ollama kapatılıyor..."):
                 try:
@@ -79,11 +95,45 @@ with st.sidebar:
                     subprocess.run(["taskkill", "/F", "/IM", "ollama.exe"], 
                                    stdout=subprocess.DEVNULL, 
                                    stderr=subprocess.DEVNULL)
-                    time.sleep(1) # Sistemin kapanması için 1 saniye bekle
+                    time.sleep(3) # Sistemin kapanması için 1 saniye bekle
                     st.rerun() # Arayüzü yenile (kırmızı ışık yansın)
                 except Exception as e:
                     st.error("Kapatılırken hata oluştu!")
-        
+
+    st.markdown("---")
+    st.markdown(f"**🌐 Çalışma Modu:** `{PIPELINE_MODE.upper()}`")
+
+    st.markdown("---")
+    st.subheader("⚙️ Oturum ve Mod Ayarları")
+    
+    # 1. CLOUD MOD GEÇİŞİ (TOGGLE)
+    import src.config
+    initial_cloud_state = (src.config.PIPELINE_MODE == "cloud")
+    
+    use_cloud = st.toggle("☁️ Bulut Hakemi (Cloud Judge)", value=initial_cloud_state)
+    
+    # Toggle durumuna göre anında Pipeline'ı güncelle
+    if use_cloud:
+        src.config.PIPELINE_MODE = "cloud"
+        # Eğer sistem Local başladıysa Cloud Judge objesi boştur, onu anında yükle:
+        if getattr(pipeline, "cloud_judge", None) is None:
+            from src.judge.judge_agent import CloudJudgeAgent
+            pipeline.cloud_judge = CloudJudgeAgent()
+    else:
+        src.config.PIPELINE_MODE = "local"
+
+    # 2. SOHBET/OTURUM SIFIRLAMA BUTONU
+    if st.button("🗑️ Sohbeti Temizle (Yeni Oturum)", use_container_width=True):
+        import uuid
+        # Yeni tertemiz bir session id üret
+        st.session_state["session_id"] = str(uuid.uuid4())
+        # Ekrandaki metin kutusunu temizle
+        if "current_prompt" in st.session_state:
+            st.session_state["current_prompt"] = ""
+        # Sayfayı yenile ki geçmiş sekmedeki konuşmalar hafızadan kopsun
+        st.rerun()
+
+   
     st.caption("Geliştirici: Enclave Ekibi")
 
 # --- 2. ANA EKRAN (MAIN AREA) ---
@@ -98,6 +148,7 @@ if uploaded_file is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
         tmp_file.write(uploaded_file.getvalue())
         tmp_path = tmp_file.name
+        # tmp_path = tmp_file.name.replace("\\", "/")
 
     try:
         # Önizleme için veriyi pandas ile okuyup arayüze basalım
@@ -153,6 +204,74 @@ if uploaded_file is not None:
             # on_click metodu ile butona basılınca set_prompt fonksiyonunu tetikliyoruz
             cols[i % 3].button(label, on_click=set_prompt, args=(prompt_text,), use_container_width=True)
 
+        if len(st.session_state["messages"]) > 1:
+            st.markdown("### 💬 Önceki Sorgular ve Sonuçlar")
+            for msg in st.session_state["messages"][1:]: # İlk 'merhaba' mesajını atla
+                with st.chat_message(msg["role"]):
+                    if msg.get("type") == "text":
+                        st.markdown(msg["content"])
+                        
+                    elif msg.get("type") == "result":
+                        st.markdown(msg["content"])
+                        
+                        with st.expander("🔍 Detayları ve 4 Sekmeli Raporu İncele", expanded=False):
+                            htab1, htab2, htab3, htab4 = st.tabs(["💻 Üretilen Kod", "📊 Terminal Çıktısı", "⚙️ Şema ve Analiz", "🤖 Ajan Raporları"])
+                            
+                            with htab1:
+                                if msg.get("execution_success"):
+                                    st.success(f"✅ Kod başarıyla çalıştı! (Kendi kendini iyileştirme {msg.get('attempts', 1)}/3 denemede bitti)")
+                                else:
+                                    st.error(f"❌ Kod {msg.get('attempts', 1)} denemeye rağmen çalıştırılamadı!")
+                                if msg.get("code"):
+                                    st.code(msg["code"], language="python")
+                                    
+                            with htab2:
+                                if msg.get("execution_success"):
+                                    output_text = msg.get("output", "")
+                                    st.text(output_text if output_text.strip() else "(Kod başarıyla çalıştı ancak ekrana bir şey yazdırmadı - print() kullanılmamış olabilir)")
+                                    # Not: Geçmiş grafikler silindiği için burada çıkmaz, terminal çıktısı gelir.
+                                else:
+                                    st.error("Alınan Son Hata:")
+                                    if msg.get("error"):
+                                        st.code(msg["error"], language="bash")
+                                        
+                            with htab3:
+                                if msg.get("csv_schema"):
+                                    st.text(msg.get("csv_schema"))
+                                st.write(f"**Sorgu Kategorisi:** `{msg.get('query_category', 'Bilinmiyor').upper()}`")
+                                st.write(f"**RAG Kullanıldı mı?** {'Evet' if msg.get('rag_context') else 'Hayır'}")
+                                
+                            with htab4:
+                                col_rev, col_judge = st.columns(2)
+                                with col_rev:
+                                    st.markdown("#### 🕵️ Local Reviewer")
+                                    rev_issues = msg.get("reviewer_issues", [])
+                                    rev_fixed = msg.get("reviewer_fixed", False)
+                                    if rev_issues or rev_fixed:
+                                        if rev_fixed:
+                                            st.success("İnceleyici ajan mantıksal hataları buldu ve kodu yeniden yazarak düzeltti!")
+                                        for issue in rev_issues:
+                                            st.warning(f"- {issue}")
+                                    else:
+                                        st.info("İnceleyici ajan kodda düzeltilecek bir mantıksal sorun bulmadı.")
+                                        
+                                with col_judge:
+                                    st.markdown("#### ☁️ Cloud Judge")
+                                    j_score = msg.get("judge_score")
+                                    if j_score is not None:
+                                        if msg.get("judge_passed"):
+                                            st.success(f"✅ Hakem Onayladı (Puan: {j_score}/10.0)")
+                                        else:
+                                            st.error(f"❌ Hakem Reddetti (Puan: {j_score}/10.0)")
+                                        
+                                        st.markdown(f"**Geri Bildirim:** {msg.get('judge_feedback', '')}")
+                                        det = msg.get("judge_details", {})
+                                        if det:
+                                            st.caption(f"Doğruluk: {det.get('correctness')}/10 | Niyet: {det.get('intent')}/10 | Kalite: {det.get('quality')}/10")
+                                    else:
+                                        st.info("Bulut Hakemi bu sorguda çalıştırılmadı (Basit sorgu veya Local Mod).")
+        st.markdown("---")
+
         # 4. KULLANICI METİN KUTUSU
         user_prompt = st.text_area(
             "Bu veri setiyle ne yapmak istiyorsun?", 
@@ -162,16 +281,45 @@ if uploaded_file is not None:
         
               
         # Butona basıldığında çalışacak kodlar
-        if st.button("🚀 Kodu Üret ve Çalıştır", type="primary"):
+        col_run, col_del = st.columns([4, 1])
+        
+        with col_run:
+            # Mevcut st.button yerine bunu değişkene atıyoruz
+            run_btn = st.button("🚀 Kodu Üret ve Çalıştır", type="primary", use_container_width=True)
+            
+        with col_del:
+            # YENİ: SEÇİCİ UNUTMA BUTONU
+            del_btn = st.button("🗑️ Yanlış Sonucu Unut", use_container_width=True)
+              
+        # --- Hafızadan Silme İşlemi ---
+        if del_btn:
+            if not user_prompt.strip():
+                st.warning("Lütfen silmek istediğiniz sorguyu metin kutusuna yazın veya yukarıdan seçin.")
+            else:
+                # Pipeline üzerinden her iki hafızadan da siliyoruz
+                pipeline.forget_query(tmp_path, user_prompt)
+                st.success(f"✅ '{user_prompt}' sorgusu hafızalardan tamamen silindi! Şimdi tekrar çalıştırabilirsiniz.")
+
+        # --- Üretim İşlemi ---
+        if run_btn:
             if not user_prompt.strip():
                 st.warning("Lütfen önce bir görev yazın!")
             else:
                 with st.spinner("Yapay Zeka düşünüyor, kod yazıyor ve test ediyor... Lütfen bekleyin."):
-                    # Sistemimizin kalbini çağırıyoruz!
-                    result = pipeline.generate(csv_path=tmp_path, user_prompt=user_prompt)
                     
-                    # Sonuçları göstermek için Sekmeler (Tabs) oluşturuyoruz
-                    tab1, tab2, tab3 = st.tabs(["💻 Üretilen Kod", "📊 Terminal Çıktısı", "⚙️ Şema ve Analiz Detayı"])
+                    # 1. Sistemimizin kalbini çağırıyoruz (session_id eklenmiş haliyle!)
+                    result = pipeline.generate(
+                        csv_path=tmp_path, 
+                        user_prompt=user_prompt,
+                        session_id=st.session_state.get("session_id")
+                    )
+                    
+                    # 2. Önbellek Uyarısı (Eğer çok hızlı geldiyse)
+                    if getattr(result, "from_cache", False):
+                        st.info("⚡ **Süper Hızlı Yanıt:** Bu sonuç Semantic Cache (Önbellek) kullanılarak saniyeler içinde getirildi!")
+                    
+                    # 3. Sonuçları göstermek için Sekmeler (YENİ: 4. Sekme eklendi)
+                    tab1, tab2, tab3, tab4 = st.tabs(["💻 Üretilen Kod", "📊 Terminal Çıktısı", "⚙️ Şema ve Analiz", "🤖 Ajan Raporları"])
                     
                     with tab1:
                         if result.execution_success:
@@ -187,10 +335,12 @@ if uploaded_file is not None:
                             output_text = result.execution_output if result.execution_output.strip() else "(Kod başarıyla çalıştı ancak ekrana bir şey yazdırmadı - print() kullanılmamış olabilir)"
                             st.text(output_text)
 
-                            if os.path.exists("output.png"):
-                                st.markdown("### 📈 Çizilen Grafik:")
-                                st.image("output.png")
-                                os.remove("output.png") # Bir sonraki test için ortalığı temizle
+                            import glob
+                            # YENİ: Sadece 'output.png' değil, üretilen tüm grafikleri yakala
+                            for plot_file in glob.glob("*.png"):
+                                st.markdown(f"### 📈 Çizilen Grafik:")
+                                st.image(plot_file)
+                                os.remove(plot_file) # Temizle
 
                         else:
                             st.error("Alınan Son Hata:")
@@ -198,7 +348,69 @@ if uploaded_file is not None:
                             
                     with tab3:
                         st.text(result.csv_schema)
+                        st.write(f"**Sorgu Kategorisi:** `{getattr(result, 'query_category', 'Bilinmiyor').upper()}`")
                         st.write(f"**RAG Kullanıldı mı?** {'Evet' if result.rag_context else 'Hayır'}")
+                        
+                    with tab4:
+                        #: AJAN RAPORLARI EKRANI
+                        st.markdown("Bu ekranda bağımsız yapay zeka ajanlarının koda yaptığı yorumları görebilirsiniz.")
+                        col_rev, col_judge = st.columns(2)
+                        
+                        with col_rev:
+                            st.markdown("#### 🕵️ Local Reviewer")
+                            if getattr(result, "reviewer_issues", None) or getattr(result, "reviewer_fixed", False):
+                                if result.reviewer_fixed:
+                                    st.success("İnceleyici ajan mantıksal hataları buldu ve kodu yeniden yazarak düzeltti!")
+                                for issue in result.reviewer_issues:
+                                    st.warning(f"- {issue}")
+                            else:
+                                st.info("İnceleyici ajan kodda düzeltilecek bir mantıksal sorun bulmadı.")
+                                
+                        with col_judge:
+                            st.markdown("#### ☁️ Cloud Judge")
+                            if getattr(result, "judge_score", None) is not None:
+                                if result.judge_passed:
+                                    st.success(f"✅ Hakem Onayladı (Puan: {result.judge_score}/10.0)")
+                                else:
+                                    st.error(f"❌ Hakem Reddetti (Puan: {result.judge_score}/10.0)")
+                                
+                                st.markdown(f"**Geri Bildirim:** {result.judge_feedback}")
+                                
+                                det = getattr(result, "judge_details", {})
+                                if det:
+                                    st.caption(f"Doğruluk: {det.get('correctness')}/10 | Niyet: {det.get('intent')}/10 | Kalite: {det.get('quality')}/10")
+                            else:
+                                st.info("Bulut Hakemi bu sorguda çalıştırılmadı (Basit sorgu veya Local Mod).")
+
+                    st.session_state["messages"].append({
+                        "role": "user", 
+                        "type": "text", 
+                        "content": user_prompt
+                    })
+                    
+                    #  Asistan yanıtını 4 sekmeyi dolduracak TÜM BİLGİLERLE kaydediyoruz
+                    st.session_state["messages"].append({
+                        "role": "assistant",
+                        "type": "result",
+                        "content": f"✅ İşlem Tamamlandı. (Sorgu Kategorisi: {getattr(result, 'query_category', 'bilinmiyor').upper()})",
+                        "code": result.code,
+                        "output": result.execution_output,
+                        "error": result.execution_error,
+                        # 4 Sekme için gereken diğer veriler:
+                        "execution_success": getattr(result, "execution_success", False),
+                        "attempts": getattr(result, "attempts", 1),
+                        "csv_schema": getattr(result, "csv_schema", ""),
+                        "rag_context": getattr(result, "rag_context", ""),
+                        "query_category": getattr(result, "query_category", "bilinmiyor"),
+                        "reviewer_issues": getattr(result, "reviewer_issues", []),
+                        "reviewer_fixed": getattr(result, "reviewer_fixed", False),
+                        "judge_score": getattr(result, "judge_score", None),
+                        "judge_passed": getattr(result, "judge_passed", False),
+                        "judge_feedback": getattr(result, "judge_feedback", ""),
+                        "judge_details": getattr(result, "judge_details", {})
+                    })
+                    
+                    
 
     finally:
         # İşlem bitince geçici dosyayı temizle

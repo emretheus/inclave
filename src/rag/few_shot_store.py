@@ -38,3 +38,12 @@ class FewShotStore:
 
     def count(self) -> int:
         return self.store.count()
+
+    def remove_query(self, query: str):
+        """Kullanıcının beğenmediği sorguyu Few-Shot (Başarılı Kodlar) hafızasından siler."""
+        doc_id = hashlib.md5(query.strip().lower().encode()).hexdigest()
+        try:
+            self.store.delete([doc_id])
+            print(f"🗑️ [Few-Shot] '{query}' başarıyla silindi.")
+        except Exception as e:
+            print(f"⚠️ [Few-Shot] Silme hatası veya kayıt yok: {e}")

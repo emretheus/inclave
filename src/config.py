@@ -31,3 +31,12 @@ CONTEXT_WINDOW_SIZE = int(os.getenv("CONTEXT_WINDOW", 3))
 
 # --- SELF-HEALER & JUDGE ---
 MAX_HEAL_ATTEMPTS = int(os.getenv("MAX_HEAL_ATTEMPTS", 3))
+
+# --- TWO-MODE PIPELINE & CLOUD JUDGE ---
+PIPELINE_MODE = os.getenv("PIPELINE_MODE", "local").lower() # "local" veya "cloud"
+
+# PIPELINE_MODE = "cloud" olduğunda kullanılacak ayarlar:
+JUDGE_PROVIDER = os.getenv("JUDGE_PROVIDER", "groq").lower() # "groq", "gemini", "openrouter"
+JUDGE_API_KEY = os.getenv("JUDGE_API_KEY", "")
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "llama3-70b-8192") # Varsayılan Groq Llama3 modeli
+JUDGE_PASS_THRESHOLD = float(os.getenv("JUDGE_PASS_THRESHOLD", 6.0))
