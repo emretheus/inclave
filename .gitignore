@@ -26,10 +26,13 @@ env/
 .DS_Store
 Thumbs.db
 
-# Project specific
-data/chromadb/
-*.log
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-
-LOCAL_CODEGEN_ROADMAP.md
-READING_LIST.md
+# Local sandbox runtime venv (built per machine; pyproject + lockfile committed)
+packages/sandbox/runtime/.venv/
