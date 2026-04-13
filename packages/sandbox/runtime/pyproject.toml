@@ -1,0 +1,15 @@
+[project]
+name = "enclave-sandbox-runtime"
+version = "0.0.0"
+description = "Frozen Python runtime bundled into the enclave-sandbox jail. Not a workspace member."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "openpyxl>=3.1",
+    "pypdf>=5.0",
+    "matplotlib>=3.9",
+]
+
+[tool.uv]
+package = false

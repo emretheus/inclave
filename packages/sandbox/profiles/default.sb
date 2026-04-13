@@ -1,0 +1,81 @@
+;; enclave-sandbox default Seatbelt profile.
+;;
+;; Parameters (passed via `sandbox-exec -D KEY=VALUE`):
+;;   WORKDIR      — absolute path to the user's working directory (read+write)
+;;   RUNTIME      — absolute path to the bundled Python venv (read+exec)
+;;   PYTHON_HOME  — absolute path to the real CPython install the venv points
+;;                  to via symlink (e.g. uv's managed Python store). Seatbelt
+;;                  resolves symlinks before authorizing, so this root must be
+;;                  explicitly allowed for read+exec.
+;;
+;; Posture: deny by default. Allow exactly what Python needs to start, plus
+;; the workdir and runtime. Network is denied. /tmp is denied (use workdir).
+;;
+;; Notes for reviewers:
+;;   - `process-exec*` on RUNTIME is required so Python can exec helper
+;;     binaries (e.g. its own subprocesses).
+;;   - `mach-lookup` and `sysctl-read` are needed by the macOS dyld loader
+;;     and by libc; without them Python won't even boot.
+;;   - We allow read of /usr, /System, /Library, /private/etc because Python
+;;     needs the system dynamic linker, locale data, and CA bundle paths.
+
+(version 1)
+(deny default)
+(deny network*)
+
+;; Allow metadata reads everywhere. Python (and dyld) stat many paths during
+;; interpreter boot — e.g. walking up from the interpreter binary to find
+;; sys.prefix, probing PYTHONHOME candidates, reading /. We keep *data* reads
+;; tightly scoped below; this only allows stat()/readdir-style lookups.
+(allow file-read-metadata)
+
+;; Process control
+(allow process-fork)
+(allow process-exec*
+    (subpath (param "RUNTIME"))
+    (subpath (param "PYTHON_HOME")))
+(allow signal (target self))
+
+;; macOS plumbing required for any process to start
+(allow sysctl-read)
+(allow mach-lookup)
+(allow ipc-posix-shm)
+(allow file-ioctl)
+(allow process-info-pidinfo (target self))
+(allow process-info-pidfdinfo (target self))
+
+;; System read access for Python interpreter + libc.
+;; The `(literal "/")` entry is required so dyld can readdir the root during
+;; boot on macOS 15+; without it every exec aborts with SIGABRT before the
+;; process is far enough along to print an error.
+(allow file-read*
+    (literal "/")
+    (subpath "/usr/lib")
+    (subpath "/usr/share")
+    (subpath "/System/Library")
+    (subpath "/System/Volumes/Preboot/Cryptexes")
+    (subpath "/Library/Developer/CommandLineTools")
+    (subpath "/private/var/db/dyld")
+    (subpath "/private/etc")
+    (literal "/dev/null")
+    (literal "/dev/zero")
+    (literal "/dev/random")
+    (literal "/dev/urandom")
+    (literal "/dev/tty")
+    (literal "/dev/dtracehelper"))
+
+;; Bundled Python runtime: read for imports, exec for the interpreter
+(allow file-read*
+    (subpath (param "RUNTIME"))
+    (subpath (param "PYTHON_HOME")))
+
+;; Working directory: full read/write — this is the sandbox's playground
+(allow file-read* file-write*
+    (subpath (param "WORKDIR")))
+
+;; Output devices
+(allow file-write*
+    (literal "/dev/null")
+    (literal "/dev/stdout")
+    (literal "/dev/stderr")
+    (literal "/dev/tty"))
