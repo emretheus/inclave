@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import functools
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 import ollama
@@ -55,12 +57,33 @@ def pull_model(name: str) -> Iterator[str]:
     Yields:
         Human-readable progress strings (e.g., "downloading 4.7 GB").
     """
-    raise NotImplementedError("pull_model is not yet implemented")
+    try:
+        response_stream = ollama.pull(name, stream=True)
+
+        for chunk in response_stream:
+            status = chunk.get("status", "")
+            completed = chunk.get("completed")
+            total = chunk.get("total")
+
+            if completed is not None and total is not None and total > 0:
+                yield f"{status} ({completed}/{total})"
+            else:
+                yield status
+
+    except ollama.ResponseError as e:
+        raise OllamaError(f"Failed to pull model: {e.error}") from e
+    except Exception as e:
+        raise OllamaError(f"Failed to pull model: {e}") from e
 
 
 def remove_model(name: str) -> None:
     """Deletes a local model from the Ollama daemon."""
-    raise NotImplementedError("remove_model is not yet implemented")
+    try:
+        ollama.delete(name)
+    except ollama.ResponseError as e:
+        raise OllamaError(f"Failed to remove model: {e.error}") from e
+    except Exception as e:
+        raise OllamaError(f"Failed to remove model: {e}") from e
 
 
 def set_default(name: str) -> None:
@@ -107,11 +130,45 @@ def generate(prompt: str, *, model: str | None = None, system: str | None = None
         raise OllamaError(f"Generation failed: {e}") from e
 
 
-def stream(prompt: str, *, model: str | None = None, system: str | None = None) -> Iterator[str]:
+def stream(prompt: str, model: str = "") -> Iterator[str]:
     """
-    Generates a streaming response from the specified model.
+    Generates text from a model in a streaming fashion.
 
     Yields:
-        Tokens of the generated text as they arrive.
+        Chunks of the generated text as they become available.
     """
-    raise NotImplementedError("stream is not yet implemented")
+    if not model:
+        raise OllamaError("A model must be specified")
+
+    try:
+        response_stream = ollama.chat(
+            model=model, messages=[{"role": "user", "content": prompt}], stream=True
+        )
+
+        for chunk in response_stream:
+            if "message" in chunk and "content" in chunk["message"]:
+                yield chunk["message"]["content"]
+
+    except ollama.ResponseError as e:
+        raise OllamaError(f"Ollama error: {e.error}") from e
+    except Exception as e:
+        raise OllamaError(f"Failed to generate text: {e}") from e
+
+
+def requires_ollama[F: Callable[..., Any]](func: F) -> F:
+    """
+    Decorator that checks if the Ollama daemon is running before executing a function.
+    Raises OllamaUnavailableError if the daemon is unreachable.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            httpx.get("http://127.0.0.1:11434/api/tags", timeout=2.0)
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            raise OllamaUnavailableError(
+                "Ollama is not running. Start it with: ollama serve"
+            ) from e
+        return func(*args, **kwargs)
+
+    return wrapper  # type: ignore

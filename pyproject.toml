@@ -3,6 +3,10 @@ name = "enclave-code"
 version = "0.0.0"
 description = "Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work"
 requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "ollama>=0.6.1",
+]
 
 [tool.uv]
 package = false
@@ -54,6 +58,10 @@ addopts = "-ra"
 markers = [
     "integration: requires external services (Ollama running, etc.) — opt-in",
 ]
+pythonpath = [
+    "packages/ollama/src",
+    "shared/enclave_core/src"
+]
 
 [tool.coverage.run]
 source = ["packages", "shared"]
@@ -62,4 +70,5 @@ omit = ["*/tests/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
 
