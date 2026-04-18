@@ -41,7 +41,6 @@ def list_models() -> list[ModelInfo]:
                 )
             )
         return models
-        return models
     except httpx.ConnectError as e:
         raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
     except Exception as e:
@@ -77,7 +76,8 @@ def get_default() -> str | None:
     """Retrieves the default model from the Enclave global configuration."""
     try:
         config = load_config()
-        return config.default_model
+        val = config.default_model
+        return str(val) if val else None
     except Exception as e:
         raise OllamaError(f"Failed to get default model: {e}") from e
 
@@ -96,7 +96,8 @@ def generate(prompt: str, *, model: str | None = None, system: str | None = None
 
     try:
         response = ollama.chat(model=model, messages=messages)
-        return response.get("message", {}).get("content", "")
+        content = response.get("message", {}).get("content", "")
+        return str(content)
     except httpx.ConnectError as e:
         raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
     except ollama.ResponseError as e:
