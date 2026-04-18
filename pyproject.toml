@@ -36,6 +36,17 @@ quote-style = "double"
 python_version = "3.12"
 strict = true
 warn_unused_ignores = true
+mypy_path = [
+    "packages/cli/src",
+    "packages/ollama/src",
+    "packages/sandbox/src",
+    "shared/enclave_core/src",
+]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "enclave_core.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["packages", "shared", "tests"]
@@ -52,11 +63,3 @@ omit = ["*/tests/*"]
 show_missing = true
 skip_covered = false
 
-[tool.mypy]
-mypy_path = [
-    "packages/cli/src",
-    "packages/ollama/src",
-    "packages/sandbox/src",
-    "shared/enclave_core/src",   # ← enclave_core buradan bulunur
-]
-explicit_package_bases = true
