@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterator
+from collections.abc import Iterator
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ def list_models() -> list[ModelInfo]:
 def pull_model(name: str) -> Iterator[str]:
     """
     Pulls a model from the Ollama registry.
-    
+
     Yields:
         Human-readable progress strings (e.g., "downloading 4.7 GB").
     """
@@ -55,8 +55,9 @@ def generate(prompt: str, *, model: str | None = None, system: str | None = None
 def stream(prompt: str, *, model: str | None = None, system: str | None = None) -> Iterator[str]:
     """
     Generates a streaming response from the specified model.
-    
+
     Yields:
         Tokens of the generated text as they arrive.
     """
     raise NotImplementedError("stream is not yet implemented")
+    
