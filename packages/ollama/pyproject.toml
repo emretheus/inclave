@@ -24,6 +24,11 @@ dev = [
 packages = ["src/enclave_ollama"]
 
 [tool.mypy]
-files = ["src"]
-mypy_path = "src"
+# 1. Sadece kendi paketimin içine bak, sağa sola sapıp dosyaları iki kere okuma
+files = ["src/enclave_ollama"]
+
+# 2. Hem benim src klasörümü, hem de paylaşılan core paketinin src klasörünü haritana ekle
+mypy_path = ["src", "../../shared/enclave_core/src"]
+
+# 3. Klasör yapımın src-layout olduğunu kesin olarak kabul et
 explicit_package_bases = true
