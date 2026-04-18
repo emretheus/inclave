@@ -21,6 +21,7 @@ def test_ollama_list_models_real() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not is_ollama_running(), reason="Ollama is not running locally")
 def test_ollama_generate_real() -> None:
     """Can we get a short response from a real Ollama instance?"""
 
