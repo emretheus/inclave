@@ -51,3 +51,12 @@ omit = ["*/tests/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+[tool.mypy]
+mypy_path = [
+    "packages/cli/src",
+    "packages/ollama/src",
+    "packages/sandbox/src",
+    "shared/enclave_core/src",   # ← enclave_core buradan bulunur
+]
+explicit_package_bases = true
