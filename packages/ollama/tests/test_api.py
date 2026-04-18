@@ -209,7 +209,7 @@ def test_requires_ollama_success(mock_get: MagicMock) -> None:
     mock_get.return_value.status_code = 200
 
     @requires_ollama
-    def dummy_function():
+    def dummy_function() -> str:
         return "it works"
 
     assert dummy_function() == "it works"
@@ -223,7 +223,7 @@ def test_requires_ollama_failure(mock_get: MagicMock) -> None:
     mock_get.side_effect = httpx.ConnectError("Connection refused")
 
     @requires_ollama
-    def dummy_function():
+    def dummy_function() -> str:
         return "this should never run"
 
     expected_msg = r"Ollama is not running\. Start it with: ollama serve"

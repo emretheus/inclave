@@ -3,7 +3,7 @@ from enclave_ollama.api import generate, list_models
 
 
 @pytest.mark.integration
-def test_ollama_list_models_real():
+def test_ollama_list_models_real() -> None:
     """Can we retrieve the model list from a real Ollama instance?"""
     models = list_models()
 
@@ -11,7 +11,7 @@ def test_ollama_list_models_real():
 
 
 @pytest.mark.integration
-def test_ollama_generate_real():
+def test_ollama_generate_real() -> None:
     """Can we get a short response from a real Ollama instance?"""
 
     try:
