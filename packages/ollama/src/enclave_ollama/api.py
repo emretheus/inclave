@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import httpx
 import ollama
+from enclave_core.config import load_config, save_config
 from enclave_ollama.errors import OllamaError, OllamaUnavailableError
 
 
@@ -26,6 +27,8 @@ def list_models() -> list[ModelInfo]:
     try:
         response = ollama.list()
         models = []
+        current_default = get_default()
+
         for m in response.get("models", []):
             details = m.get("details", {})
             models.append(
@@ -34,9 +37,10 @@ def list_models() -> list[ModelInfo]:
                     size_bytes=m.get("size", 0),
                     family=details.get("family", ""),
                     parameter_count=details.get("parameter_size", ""),
-                    is_default=False,  # Will be merged with config later
+                    is_default=(m.get("name", "") == current_default),
                 )
             )
+        return models
         return models
     except httpx.ConnectError as e:
         raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
@@ -61,12 +65,21 @@ def remove_model(name: str) -> None:
 
 def set_default(name: str) -> None:
     """Sets the default model in the Enclave global configuration."""
-    raise NotImplementedError("set_default is not yet implemented")
+    try:
+        config = load_config()
+        config.default_model = name
+        save_config(config)
+    except Exception as e:
+        raise OllamaError(f"Failed to set default model: {e}") from e
 
 
 def get_default() -> str | None:
     """Retrieves the default model from the Enclave global configuration."""
-    raise NotImplementedError("get_default is not yet implemented")
+    try:
+        config = load_config()
+        return config.default_model
+    except Exception as e:
+        raise OllamaError(f"Failed to get default model: {e}") from e
 
 
 def generate(prompt: str, *, model: str | None = None, system: str | None = None) -> str:
