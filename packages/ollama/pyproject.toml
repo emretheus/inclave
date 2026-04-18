@@ -24,9 +24,6 @@ dev = [
 packages = ["src/enclave_ollama"]
 
 [tool.mypy]
+files = ["src"]
 mypy_path = "src"
 explicit_package_bases = true
-
-[[tool.mypy.overrides]]
-module = "enclave_core.*"
-ignore_missing_imports = true
