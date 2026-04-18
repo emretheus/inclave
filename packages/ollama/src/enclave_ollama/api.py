@@ -45,9 +45,7 @@ def list_models() -> list[ModelInfo]:
             )
         return models
     except (httpx.ConnectError, ConnectionError) as e:
-        raise OllamaUnavailableError(
-            "Ollama is not running. Start it with: ollama serve"
-        ) from e
+        raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
     except Exception as e:
         raise OllamaError(f"Failed to list models: {e}") from e
 
@@ -125,9 +123,7 @@ def generate(prompt: str, *, model: str | None = None, system: str | None = None
         content = response.get("message", {}).get("content", "")
         return str(content)
     except (httpx.ConnectError, ConnectionError) as e:
-        raise OllamaUnavailableError(
-            "Ollama is not running. Start it with: ollama serve"
-        ) from e
+        raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
     except ollama.ResponseError as e:
         raise OllamaError(f"Ollama error: {e.error}") from e
     except Exception as e:
@@ -154,10 +150,8 @@ def stream(prompt: str, model: str = "") -> Iterator[str]:
                 yield chunk["message"]["content"]
 
     except (httpx.ConnectError, ConnectionError) as e:
-        raise OllamaUnavailableError(
-            "Ollama is not running. Start it with: ollama serve"
-        ) from e
-    except ollama.ResponseError as e:  
+        raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve") from e
+    except ollama.ResponseError as e:
         raise OllamaError(f"Ollama error: {e.error}") from e
     except Exception as e:
         raise OllamaError(f"Failed to generate text: {e}") from e
