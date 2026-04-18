@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import httpx
 import ollama
 from enclave_core.config import load_config, save_config
+
 from enclave_ollama.errors import OllamaError, OllamaUnavailableError
 
 
