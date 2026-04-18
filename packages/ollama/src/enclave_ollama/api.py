@@ -1,8 +1,8 @@
 """Public API contract for Ollama model management and inference."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -60,4 +60,3 @@ def stream(prompt: str, *, model: str | None = None, system: str | None = None) 
         Tokens of the generated text as they arrive.
     """
     raise NotImplementedError("stream is not yet implemented")
-    

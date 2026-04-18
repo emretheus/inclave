@@ -12,4 +12,3 @@ class OllamaError(EnclaveError):
 class OllamaUnavailableError(OllamaError):
     """Raised when the Ollama daemon is unreachable or not running."""
     pass
-    
