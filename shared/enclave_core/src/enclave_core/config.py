@@ -44,3 +44,4 @@ def save_config(config: EnclaveConfig) -> None:
     """Persists config to disk."""
     path = _config_path()
     path.write_text(json.dumps(config.to_dict(), indent=2), encoding="utf-8")
+    
