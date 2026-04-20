@@ -24,18 +24,30 @@ This package strictly owns:
 
 ## Prerequisites
 
-- macOS
-- [Ollama](https://ollama.com) must be installed and running locally.
+- [Ollama](https://ollama.com/download) must be installed and running locally (macOS, Windows, or Linux).
 - Expected Ollama version: `>= 0.2.0`
 
 ### Installing Ollama
 
-To run tests or use this package, ensure the daemon is running:
+Download and install from the official site, or use a package manager:
 
 ```bash
+# macOS
 brew install ollama
+
+# Start the daemon (if not running in background)
 ollama serve
-```
+```     
+
+## Supported & Tested Models
+
+While this package can interact with any model available in the Ollama registry, the following models are actively tested in our CI/CD pipeline for compatibility and output formatting:
+
+- `llama3.2` (Default general-purpose model)
+- `qwen2.5-coder:14b` (Primary coding assistant model)
+- `phi3` (Lightweight fallback model)
+
+*Note: The CLI is responsible for injecting the correct system prompts; this package simply forwards the model name to the daemon.*
 
 ## Usage
 

@@ -6,6 +6,7 @@ import pytest
 from enclave_ollama.api import (
     generate,
     get_default,
+    is_model_fully_vram_compatible,
     list_models,
     pull_model,
     remove_model,
@@ -229,3 +230,25 @@ def test_requires_ollama_failure(mock_get: MagicMock) -> None:
     expected_msg = r"Ollama is not running\. Start it with: ollama serve"
     with pytest.raises(OllamaUnavailableError, match=expected_msg):
         dummy_function()
+
+
+@patch("enclave_ollama.api.get_total_ram_gb")
+def test_is_model_fully_vram_compatible(mock_get_ram: MagicMock) -> None:
+    """Tests the boundary values for VRAM capacity calculations on Apple Silicon."""
+
+    # Scenario 1: System RAM could not be read (returns 0.0) -> Expect None
+    mock_get_ram.return_value = 0.0
+    assert is_model_fully_vram_compatible(1000) is None
+
+    # Scenario 2: Memory is sufficient (True)
+    # System RAM = 16 GB. 70% limit = 11.2 GB available VRAM.
+    # Model 5 GB + 2 GB Context = 7 GB. (7 <= 11.2)
+    mock_get_ram.return_value = 16.0
+    five_gb_bytes = 5 * (1024**3)
+    assert is_model_fully_vram_compatible(five_gb_bytes, context_gb=2.0) is True
+
+    # Scenario 3: Memory is insufficient (False)
+    # System RAM = 8 GB. 70% limit = 5.6 GB available VRAM.
+    # Model 5 GB + 2 GB Context = 7 GB. (7 > 5.6)
+    mock_get_ram.return_value = 8.0
+    assert is_model_fully_vram_compatible(five_gb_bytes, context_gb=2.0) is False
