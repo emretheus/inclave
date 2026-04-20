@@ -12,6 +12,7 @@ import ollama
 from enclave_core.config import load_config, save_config
 
 from enclave_ollama.errors import OllamaError, OllamaUnavailableError
+from enclave_ollama.hardware import get_total_ram_gb
 
 
 @dataclass(frozen=True)
@@ -174,3 +175,29 @@ def requires_ollama[F: Callable[..., Any]](func: F) -> F:
         return func(*args, **kwargs)
 
     return wrapper  # type: ignore
+
+
+def is_model_fully_vram_compatible(model_size_bytes: int, context_gb: float = 2.0) -> bool | None:
+    """
+    Checks if the model can run entirely within the Apple Silicon Unified Memory
+    (~70% limit rule) without relying on swap memory.
+
+    Args:
+        model_size_bytes: The size of the model on disk in bytes.
+        context_gb: Estimated VRAM needed for the context window (default is 2GB).
+
+    Returns:
+        True: Memory is sufficient.
+        False: Memory is insufficient (Will use SSD swap, extremely slow).
+        None: System memory could not be verified.
+    """
+    total_ram_gb = get_total_ram_gb()
+
+    if total_ram_gb == 0.0:
+        return None
+
+    # macOS strictly limits GPU memory allocation to around 70% of total unified memory
+    mac_vram_limit_gb = total_ram_gb * 0.70
+    required_gb = (model_size_bytes / (1024**3)) + context_gb
+
+    return mac_vram_limit_gb >= required_gb
