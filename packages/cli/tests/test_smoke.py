@@ -3,6 +3,7 @@
 These tests invoke the real `enclave` binary via subprocess to catch packaging
 regressions that unit tests would miss (missing entry point, import-time errors, etc.).
 """
+
 from __future__ import annotations
 
 import subprocess

@@ -3,6 +3,7 @@
 Defines the `enclave` command and its subcommands per PROJECT_PLAN.md §6.
 Handlers are stubs for M0; milestone M1+ will implement them.
 """
+
 from __future__ import annotations
 
 import typer
