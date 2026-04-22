@@ -6,6 +6,7 @@ class EnclaveError(Exception):
     exits with a code mapped per subclass (see PROJECT_PLAN.md §15.2).
     """
 
+
 class ConfigError(EnclaveError):
     """Raised when config is malformed, missing required fields, or cannot be read/written."""
 
