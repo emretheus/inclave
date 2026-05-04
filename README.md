@@ -9,6 +9,8 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)]()
 
+![demo](demo.gif)
+
 ---
 
 ## What it does
