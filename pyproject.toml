@@ -4,8 +4,12 @@ version = "0.0.0"
 description = "Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work"
 requires-python = ">=3.12"
 dependencies = [
+    "enclave-cli",
     "httpx>=0.28.1",
     "ollama>=0.6.1",
+    "enclave-core",
+    "enclave-ollama",
+    "enclave-sandbox",
 ]
 
 [tool.uv]
@@ -15,7 +19,9 @@ package = false
 members = ["packages/*", "shared/*"]
 
 [tool.uv.sources]
+enclave-cli = { workspace = true }
 enclave-core = { workspace = true }
+enclave-ollama = { workspace = true }
 enclave-sandbox = { workspace = true }
 
 [dependency-groups]
