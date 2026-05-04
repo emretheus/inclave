@@ -3,6 +3,12 @@ name = "enclave-cli"
 version = "0.1.0"
 description = "Enclave Code CLI — entrypoint, REPL, file ingestion, command routing"
 readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
 requires-python = ">=3.12"
 dependencies = [
     "enclave-core",

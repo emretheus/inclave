@@ -194,7 +194,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "enclave-code"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "enclave-cli" },
@@ -233,7 +233,7 @@ dev = [
 
 [[package]]
 name = "enclave-core"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "shared/enclave_core" }
 
 [[package]]
@@ -266,7 +266,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "enclave-sandbox"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "packages/sandbox" }
 dependencies = [
     { name = "enclave-core" },

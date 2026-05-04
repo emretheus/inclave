@@ -1,7 +1,13 @@
 [project]
 name = "enclave-sandbox"
-version = "0.0.0"
+version = "0.1.0"
 description = "macOS Seatbelt-based isolated code execution for enclave-code"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
 requires-python = ">=3.12"
 dependencies = [
     "enclave-core",

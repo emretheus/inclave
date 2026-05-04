@@ -2,4 +2,6 @@
 
 Entrypoint, REPL, file ingestion, and command routing for Enclave Code.
 
-Exposes the `enclave` console script. See root `PROJECT_PLAN.md` §6 for the CLI surface and `tasks/EMRE.md` for milestone breakdown.
+Exposes the `enclave` console script. See the [root README](../../README.md) for
+end-user documentation and [`PROJECT_PLAN.md`](../../PROJECT_PLAN.md) for the
+overall design.

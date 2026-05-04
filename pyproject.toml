@@ -1,8 +1,28 @@
 [project]
 name = "enclave-code"
-version = "0.0.0"
-description = "Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work"
+version = "0.1.0"
+description = "Local-first, privacy-preserving CLI for macOS — chat with and analyze your files using a local LLM, with sandboxed code execution."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
+maintainers = [{ name = "Caelusway", email = "53878581+caelusway@users.noreply.github.com" }]
 requires-python = ">=3.12"
+keywords = ["cli", "ollama", "sandbox", "privacy", "macos", "file-analysis", "local-llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
 dependencies = [
     "enclave-cli",
     "httpx>=0.28.1",
@@ -11,6 +31,11 @@ dependencies = [
     "enclave-ollama",
     "enclave-sandbox",
 ]
+
+[project.urls]
+Homepage = "https://github.com/caelusway/enclave-code"
+Repository = "https://github.com/caelusway/enclave-code"
+Issues = "https://github.com/caelusway/enclave-code/issues"
 
 [tool.uv]
 package = false

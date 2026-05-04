@@ -87,7 +87,7 @@ enclave-code/
 │   └── enclave_core/               # shared types, config schema, logging
 │       ├── src/enclave_core/
 │       └── tests/
-├── tasks/
+├── .github/internal/tasks/         # per-member breakdowns (internal)
 │   ├── ULGAC.md
 │   ├── EMRE.md
 │   └── IBRAHIM.md
@@ -311,7 +311,7 @@ Adversarial test suite — these MUST exist:
 
 Cross-cutting (owned jointly): `.github/workflows/`, root `pyproject.toml`, `PROJECT_PLAN.md`, integration tests under `tests/`.
 
-Per-member task breakdowns: see `tasks/ULGAC.md`, `tasks/EMRE.md`, `tasks/IBRAHIM.md`.
+Per-member task breakdowns are kept internally under `.github/internal/tasks/`.
 
 ---
 
