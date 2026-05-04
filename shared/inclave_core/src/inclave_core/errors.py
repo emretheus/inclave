@@ -1,22 +1,22 @@
-class EnclaveError(Exception):
+class InClaveError(Exception):
     """Base class for all enclave-* package errors.
 
     Subclassed per package (SandboxError, OllamaError, ConfigError, CLIError).
-    The CLI catches EnclaveError at top level, prints `error.message`, and
+    The CLI catches InClaveError at top level, prints `error.message`, and
     exits with a code mapped per subclass (see PROJECT_PLAN.md §15.2).
     """
 
 
-class ConfigError(EnclaveError):
+class ConfigError(InClaveError):
     """Raised when config is malformed, missing required fields, or cannot be read/written."""
 
 
-class SandboxError(EnclaveError):
-    """Raised by enclave_sandbox for execution, policy, or isolation failures."""
+class SandboxError(InClaveError):
+    """Raised by inclave_sandbox for execution, policy, or isolation failures."""
 
 
-class OllamaError(EnclaveError):
-    """Raised by enclave_ollama for model-related or API failures."""
+class OllamaError(InClaveError):
+    """Raised by inclave_ollama for model-related or API failures."""
 
 
 class OllamaUnavailableError(OllamaError):
@@ -26,5 +26,5 @@ class OllamaUnavailableError(OllamaError):
     """
 
 
-class CLIError(EnclaveError):
-    """Raised by enclave_cli for user-facing command errors (bad input, etc.)."""
+class CLIError(InClaveError):
+    """Raised by inclave_cli for user-facing command errors (bad input, etc.)."""

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Enclave Code installer
+# InClave installer
 #
-#   curl -fsSL https://raw.githubusercontent.com/caelusway/enclave-code/master/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/caelusway/inclave/master/install.sh | sh
 #
 # What this does:
 #   1. Refuses to run on anything other than macOS (sandbox is macOS-only).
 #   2. Installs `uv` if it isn't already on PATH.
-#   3. Clones (or updates) the repo into ~/.cache/enclave-code-src.
-#   4. Installs the `enclave` console script via `uv tool install --from`.
+#   3. Clones (or updates) the repo into ~/.cache/inclave-src.
+#   4. Installs the `inclave` console script via `uv tool install --from`.
 #   5. Tells you what to do next.
 #
 # It does NOT install Ollama for you — that's a deliberate choice so you stay
@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/caelusway/enclave-code.git"
-SRC_DIR="${HOME}/.cache/enclave-code-src"
+REPO_URL="https://github.com/caelusway/inclave.git"
+SRC_DIR="${HOME}/.cache/inclave-src"
 BRANCH="${ENCLAVE_BRANCH:-master}"
 
 # ---------- pretty output ----------
@@ -41,7 +41,7 @@ die()  { printf "%s✗%s %s\n" "$RED" "$RESET" "$*" >&2; exit 1; }
 # ---------- preflight ----------
 step "Checking platform"
 if [ "$(uname -s)" != "Darwin" ]; then
-    die "Enclave Code requires macOS (Seatbelt sandbox). Detected: $(uname -s)."
+    die "InClave requires macOS (Seatbelt sandbox). Detected: $(uname -s)."
 fi
 ok "macOS detected"
 
@@ -78,16 +78,16 @@ fi
 ok "Source ready"
 
 # ---------- install ----------
-step "Installing enclave-cli"
+step "Installing inclave-cli"
 # --force so re-running upgrades cleanly.
-uv tool install --quiet --force --from "$SRC_DIR/packages/cli" enclave-cli
-ok "enclave-cli installed"
+uv tool install --quiet --force --from "$SRC_DIR/packages/cli" inclave-cli
+ok "inclave-cli installed"
 
 # ---------- ollama check ----------
 if command -v ollama >/dev/null 2>&1; then
     ok "Ollama detected ($(ollama --version 2>/dev/null | head -n1 | awk '{print $NF}'))"
 else
-    warn "Ollama is not installed. To use Enclave Code with a local model:"
+    warn "Ollama is not installed. To use InClave with a local model:"
     printf "    %sbrew install ollama%s\n" "$BOLD" "$RESET"
     printf "    %sollama serve &%s\n" "$BOLD" "$RESET"
     printf "    %sollama pull llama3.2%s\n" "$BOLD" "$RESET"
@@ -102,8 +102,8 @@ fi
 # ---------- done ----------
 echo
 ok "Installed. Next steps:"
-printf "    %senclave init%s\n" "$BOLD" "$RESET"
-printf "    %senclave models use llama3.2%s   %s(or another local model)%s\n" "$BOLD" "$RESET" "$DIM" "$RESET"
-printf "    %senclave chat%s\n" "$BOLD" "$RESET"
+printf "    %sinclave init%s\n" "$BOLD" "$RESET"
+printf "    %sinclave models use llama3.2%s   %s(or another local model)%s\n" "$BOLD" "$RESET" "$DIM" "$RESET"
+printf "    %sinclave chat%s\n" "$BOLD" "$RESET"
 echo
-printf "%sDocs:%s https://github.com/caelusway/enclave-code\n" "$DIM" "$RESET"
+printf "%sDocs:%s https://github.com/caelusway/inclave\n" "$DIM" "$RESET"

@@ -1,10 +1,10 @@
-# Enclave Code
+# InClave
 
 > Drop a PDF, Excel, CSV, or code file. Ask a question. Run the answer.
 > Locally, on macOS, with a local LLM and a sandbox for code execution.
 > No cloud. No telemetry. Nothing leaves your machine.
 
-[![CI](https://github.com/caelusway/enclave-code/actions/workflows/ci.yml/badge.svg)](https://github.com/caelusway/enclave-code/actions/workflows/ci.yml)
+[![CI](https://github.com/caelusway/inclave/actions/workflows/ci.yml/badge.svg)](https://github.com/caelusway/inclave/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)]()
@@ -13,7 +13,7 @@
 
 ## What it does
 
-Enclave Code is a CLI for working with your own files using a **local** language
+InClave is a CLI for working with your own files using a **local** language
 model. It pairs three things:
 
 - **Local inference** via [Ollama](https://ollama.com/) — pick any model you have
@@ -28,7 +28,7 @@ model. It pairs three things:
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/caelusway/enclave-code/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/caelusway/inclave/master/install.sh | sh
 ```
 
 Or manually with [`uv`](https://docs.astral.sh/uv/):
@@ -38,9 +38,9 @@ brew install ollama
 ollama serve &
 ollama pull llama3.2
 
-git clone https://github.com/caelusway/enclave-code.git
-cd enclave-code
-uv tool install --from packages/cli enclave-cli
+git clone https://github.com/caelusway/inclave.git
+cd inclave
+uv tool install --from packages/cli inclave-cli
 ```
 
 > Requires macOS, Python 3.12+, and a running Ollama daemon.
@@ -48,21 +48,21 @@ uv tool install --from packages/cli enclave-cli
 ## Quick start
 
 ```bash
-# 1. First-run setup — creates ~/.enclave/{config.json,sessions/,log/,workspaces/}
-enclave init
+# 1. First-run setup — creates ~/.inclave/{config.json,sessions/,log/,workspaces/}
+inclave init
 
 # 2. Choose a default model
-enclave models list
-enclave models use llama3.2
+inclave models list
+inclave models use llama3.2
 
 # 3. Add files to your local workspace
-enclave files add ~/Documents/q3-report.pdf ~/Downloads/expenses.csv
+inclave files add ~/Documents/q3-report.pdf ~/Downloads/expenses.csv
 
 # 4. Ask a one-shot question
-enclave ask "what was the Q3 churn rate?"
+inclave ask "what was the Q3 churn rate?"
 
 # 5. Or have a conversation
-enclave chat
+inclave chat
 ```
 
 Inside `chat`:
@@ -79,8 +79,8 @@ Inside `chat`:
 **Analyze a spreadsheet without it leaving your machine**
 
 ```
-$ enclave chat
-●  enclave  llama3.2:latest  workspace: 0 files  workdir: ~/Downloads
+$ inclave chat
+●  inclave  llama3.2:latest  workspace: 0 files  workdir: ~/Downloads
 
 ›  ~/Downloads/expenses.csv  what categories are in this file?
 
@@ -135,9 +135,9 @@ Larger inputs are truncated with a clear marker.
 - The sandbox profile (`packages/sandbox/profiles/default.sb`) blocks network
   access, denies all file I/O outside the run's working directory, and applies
   CPU / memory / wall-clock limits via `RLIMIT`.
-- Files in your workspace live at `~/.enclave/workspaces/default/` as
-  content-hashed copies; deleting them is `enclave files clear` or
-  `rm -rf ~/.enclave`.
+- Files in your workspace live at `~/.inclave/workspaces/default/` as
+  content-hashed copies; deleting them is `inclave files clear` or
+  `rm -rf ~/.inclave`.
 - No telemetry, no analytics, no remote calls. CI has a guard that grep-checks
   for outbound HTTP to anything other than localhost.
 
@@ -151,7 +151,7 @@ Linux support (via `bubblewrap`) is on the roadmap; Windows is out of scope.
 
 ## Configuration
 
-Settings live in `~/.enclave/config.json`:
+Settings live in `~/.inclave/config.json`:
 
 | Key                    | Default     | Purpose                                            |
 |------------------------|-------------|----------------------------------------------------|
@@ -160,13 +160,13 @@ Settings live in `~/.enclave/config.json`:
 | `sandbox_memory_mb`    | `512`       | Memory limit per `/run`                            |
 | `auto_run`             | `false`     | Skip the `y/N` prompt before `/run`                |
 
-Edit with `enclave config set <key> <value>` or by hand.
+Edit with `inclave config set <key> <value>` or by hand.
 
 ## Development
 
 ```bash
-git clone https://github.com/caelusway/enclave-code.git
-cd enclave-code
+git clone https://github.com/caelusway/inclave.git
+cd inclave
 uv sync --all-packages --all-extras
 
 uv run pytest                   # 100+ tests
@@ -184,18 +184,18 @@ packages/
   ollama/       # Local LLM inference + model management
   sandbox/      # macOS Seatbelt isolated executor
 shared/
-  enclave_core/ # Config, errors, workspace
+  inclave_core/ # Config, errors, workspace
 ```
 
 ## Authors
 
 Built by:
 
-- **Emre Ulgac** — sandbox
-- **Emre Kocyigit** — CLI, file ingestion, REPL
-- **Ibrahim Furkan Gulcan** — Ollama integration
+- **Emre Ulgac** 
+- **Emre Kocyigit**
+- **Ibrahim Furkan Gulcan** 
 
-See the [contributors page](https://github.com/caelusway/enclave-code/graphs/contributors)
+See the [contributors page](https://github.com/caelusway/inclave/graphs/contributors)
 for everyone who has contributed.
 
 ## Contributing

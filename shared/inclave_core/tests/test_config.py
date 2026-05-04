@@ -1,17 +1,17 @@
-"""Unit tests for the EnclaveConfig load/save round-trip and set_config_value."""
+"""Unit tests for the InClaveConfig load/save round-trip and set_config_value."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from enclave_core.config import (
-    EnclaveConfig,
+from inclave_core.config import (
+    InClaveConfig,
     load_config,
     save_config,
     set_config_value,
 )
-from enclave_core.errors import ConfigError
+from inclave_core.errors import ConfigError
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_defaults_when_missing(fake_home: Path) -> None:
 
 
 def test_round_trip(fake_home: Path) -> None:
-    cfg = EnclaveConfig(
+    cfg = InClaveConfig(
         default_model="llama3.2",
         sandbox_cpu_seconds=42,
         sandbox_memory_mb=1024,
@@ -66,7 +66,7 @@ def test_set_bad_bool_raises(fake_home: Path) -> None:
 
 
 def test_corrupt_json_raises(fake_home: Path) -> None:
-    cfg_path = fake_home / ".enclave" / "config.json"
+    cfg_path = fake_home / ".inclave" / "config.json"
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text("{not json")
     with pytest.raises(ConfigError):

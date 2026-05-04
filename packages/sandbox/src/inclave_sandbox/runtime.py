@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from enclave_sandbox.errors import SandboxError
+from inclave_sandbox.errors import SandboxError
 
 RUNTIME_DIR_NAME = "runtime"
 VENV_NAME = ".venv"

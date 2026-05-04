@@ -1,4 +1,4 @@
-"""Enclave global configuration — load and persist user settings."""
+"""InClave global configuration — load and persist user settings."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from enclave_core.errors import ConfigError
+from inclave_core.errors import ConfigError
 
 
 def enclave_dir() -> Path:
-    """Returns ~/.enclave, creating it if missing."""
-    d = Path.home() / ".enclave"
+    """Returns ~/.inclave, creating it if missing."""
+    d = Path.home() / ".inclave"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -34,8 +34,8 @@ def log_dir() -> Path:
 
 
 @dataclass
-class EnclaveConfig:
-    """Global Enclave configuration.
+class InClaveConfig:
+    """Global InClave configuration.
 
     Demo subset of PROJECT_PLAN §5.3. TOML migration is tracked separately.
     """
@@ -54,7 +54,7 @@ class EnclaveConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, object]) -> EnclaveConfig:
+    def from_dict(cls, data: dict[str, object]) -> InClaveConfig:
         cfg = cls()
         dm = data.get("default_model")
         if dm is None or isinstance(dm, str):
@@ -79,21 +79,21 @@ CONFIG_KEYS: tuple[str, ...] = (
 )
 
 
-def load_config() -> EnclaveConfig:
+def load_config() -> InClaveConfig:
     """Loads config from disk. Returns defaults if file does not exist."""
     path = _config_path()
     if not path.exists():
-        return EnclaveConfig()
+        return InClaveConfig()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         raise ConfigError(f"config at {path} is unreadable: {e}") from e
     if not isinstance(data, dict):
         raise ConfigError(f"config at {path} must be a JSON object")
-    return EnclaveConfig.from_dict(data)
+    return InClaveConfig.from_dict(data)
 
 
-def save_config(config: EnclaveConfig) -> None:
+def save_config(config: InClaveConfig) -> None:
     """Persists config to disk atomically."""
     path = _config_path()
     tmp = path.with_suffix(".json.tmp")
@@ -101,7 +101,7 @@ def save_config(config: EnclaveConfig) -> None:
     os.replace(tmp, path)
 
 
-def set_config_value(key: str, value: str) -> EnclaveConfig:
+def set_config_value(key: str, value: str) -> InClaveConfig:
     """Sets a single field by name. Coerces from string. Persists. Returns new config."""
     if key not in CONFIG_KEYS:
         raise ConfigError(f"unknown config key: {key!r}. valid keys: {', '.join(CONFIG_KEYS)}")

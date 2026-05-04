@@ -1,7 +1,7 @@
-from enclave_core.errors import EnclaveError
+from inclave_core.errors import InClaveError
 
 
-class SandboxError(EnclaveError):
+class SandboxError(InClaveError):
     """Raised when sandboxed execution fails to set up or is denied by policy.
 
     A timeout or non-zero exit from the sandboxed process is NOT a SandboxError

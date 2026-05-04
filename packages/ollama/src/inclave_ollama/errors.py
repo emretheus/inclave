@@ -1,11 +1,11 @@
-"""Exception classes for the enclave_ollama package."""
+"""Exception classes for the inclave_ollama package."""
 
 from __future__ import annotations
 
-from enclave_core.errors import EnclaveError
+from inclave_core.errors import InClaveError
 
 
-class OllamaError(EnclaveError):
+class OllamaError(InClaveError):
     """Base exception for all Ollama-related errors."""
 
     pass

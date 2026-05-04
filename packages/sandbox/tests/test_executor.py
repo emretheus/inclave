@@ -2,10 +2,10 @@ import shutil
 import sys
 from pathlib import Path
 
-import enclave_sandbox as sb
+import inclave_sandbox as sb
 import pytest
-from enclave_sandbox.errors import SandboxError
-from enclave_sandbox.runtime import runtime_python
+from inclave_sandbox.errors import SandboxError
+from inclave_sandbox.runtime import runtime_python
 
 
 def _runtime_built() -> bool:

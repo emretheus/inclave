@@ -9,10 +9,10 @@ from typing import Any
 
 import httpx
 import ollama
-from enclave_core.config import load_config, save_config
+from inclave_core.config import load_config, save_config
 
-from enclave_ollama.errors import OllamaError, OllamaUnavailableError
-from enclave_ollama.hardware import get_total_ram_gb
+from inclave_ollama.errors import OllamaError, OllamaUnavailableError
+from inclave_ollama.hardware import get_total_ram_gb
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,7 @@ def remove_model(name: str) -> None:
 
 
 def set_default(name: str) -> None:
-    """Sets the default model in the Enclave global configuration."""
+    """Sets the default model in the InClave global configuration."""
     try:
         config = load_config()
         config.default_model = name
@@ -100,7 +100,7 @@ def set_default(name: str) -> None:
 
 
 def get_default() -> str | None:
-    """Retrieves the default model from the Enclave global configuration."""
+    """Retrieves the default model from the InClave global configuration."""
     try:
         config = load_config()
         val = config.default_model

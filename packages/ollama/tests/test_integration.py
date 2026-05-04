@@ -1,6 +1,6 @@
 import httpx
 import pytest
-from enclave_ollama.api import generate, list_models
+from inclave_ollama.api import generate, list_models
 
 
 def is_ollama_running() -> bool:

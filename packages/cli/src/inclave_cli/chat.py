@@ -15,29 +15,29 @@ from pathlib import Path
 
 import httpx
 import ollama
-from enclave_core import (
+from inclave_core import (
     CLIError,
-    EnclaveConfig,
-    EnclaveError,
     FileEntry,
+    InClaveConfig,
+    InClaveError,
     OllamaUnavailableError,
     add_file,
     find_file,
     list_files,
 )
-from enclave_core.errors import OllamaError
+from inclave_core.errors import OllamaError
 from rich.console import Console
 
-from enclave_cli import ui
-from enclave_cli.context import (
+from inclave_cli import ui
+from inclave_cli.context import (
     SYSTEM_PROMPT,
     AttachedFile,
     assemble_user_prompt,
     attach,
     write_run_workdir,
 )
-from enclave_cli.dropdetect import parse_drop
-from enclave_cli.inputline import make_session, read_input
+from inclave_cli.dropdetect import parse_drop
+from inclave_cli.inputline import make_session, read_input
 
 CODE_BLOCK_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
 
@@ -85,7 +85,7 @@ def _attach_paths(
     for p in paths:
         try:
             entry, was_new = add_file(p)
-        except EnclaveError as e:
+        except InClaveError as e:
             ui.error(err_console, str(e))
             continue
         if not any(s.id == entry.id for s in session_files):
@@ -99,13 +99,13 @@ def _attach_paths(
 def _execute_in_sandbox(
     code: str,
     attached: list[AttachedFile],
-    cfg: EnclaveConfig,
+    cfg: InClaveConfig,
     console: Console,
     err_console: Console,
 ) -> None:
-    from enclave_sandbox import SandboxPolicy, execute_python
+    from inclave_sandbox import SandboxPolicy, execute_python
 
-    tmp = Path(tempfile.mkdtemp(prefix="enclave-run-"))
+    tmp = Path(tempfile.mkdtemp(prefix="inclave-run-"))
     try:
         write_run_workdir(tmp, attached)
         policy = SandboxPolicy(
@@ -115,7 +115,7 @@ def _execute_in_sandbox(
         )
         try:
             result = execute_python(code, policy)
-        except EnclaveError as e:
+        except InClaveError as e:
             ui.error(err_console, str(e))
             return
 
@@ -160,14 +160,14 @@ def run_chat(
     model: str,
     *,
     file_refs: list[str] | None = None,
-    config: EnclaveConfig | None = None,
+    config: InClaveConfig | None = None,
 ) -> int:
     if not model:
         raise CLIError(
-            "no model selected. set one with: enclave models use <name>, or pass --model"
+            "no model selected. set one with: inclave models use <name>, or pass --model"
         )
 
-    cfg = config or EnclaveConfig()
+    cfg = config or InClaveConfig()
     messages: list[dict[str, str]] = []
     session_files: list[FileEntry] = _resolve_initial_files(file_refs)
     current_model = [model]  # mutable holder so /model can swap mid-session
@@ -269,7 +269,7 @@ def run_chat(
             console.print()
             ui.error(err_console, str(e))
             return 3
-        except EnclaveError as e:
+        except InClaveError as e:
             spinner.stop()
             console.print()
             ui.error(err_console, str(e))
@@ -300,12 +300,12 @@ def _list_local_model_names() -> list[str]:
     Returns [] when Ollama isn't running so /model still prints something useful.
     """
     try:
-        from enclave_ollama.api import list_models
+        from inclave_ollama.api import list_models
     except ImportError:  # pragma: no cover
         return []
     try:
         return [m.name for m in list_models()]
-    except EnclaveError:
+    except InClaveError:
         return []
 
 
@@ -351,7 +351,7 @@ def _handle_slash(
     messages: list[dict[str, str]],
     session_files: list[FileEntry],
     current_model: list[str],
-    cfg: EnclaveConfig,
+    cfg: InClaveConfig,
     console: Console,
     err_console: Console,
 ) -> bool:
@@ -412,7 +412,7 @@ def _handle_slash(
                 _attach_paths(matches, session_files, console, err_console)
                 return False
             _attach_paths([expanded], session_files, console, err_console)
-        except EnclaveError as e:
+        except InClaveError as e:
             ui.error(err_console, str(e))
         return False
 

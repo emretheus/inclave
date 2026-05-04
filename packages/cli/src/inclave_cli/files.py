@@ -16,8 +16,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from enclave_core.errors import CLIError
-from enclave_core.workspace import kind_for
+from inclave_core.errors import CLIError
+from inclave_core.workspace import kind_for
 
 MAX_PER_FILE_BYTES = 100 * 1024  # 100 KB
 MAX_TOTAL_BYTES = 200 * 1024  # 200 KB

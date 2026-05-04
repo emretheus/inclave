@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from enclave_core import FileEntry
+from inclave_core import FileEntry
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -26,7 +26,7 @@ DOT_PEND = "[yellow]●[/yellow]"
 
 def banner(console: Console, model: str, n_files: int, workdir: str) -> None:
     pieces = [
-        f"{DOT_OK} [bold]enclave[/bold]",
+        f"{DOT_OK} [bold]inclave[/bold]",
         f"[{DIM}]{model}[/{DIM}]",
         f"[{DIM}]workspace: {n_files} file{'s' if n_files != 1 else ''}[/{DIM}]",
         f"[{DIM}]workdir: {workdir}[/{DIM}]",

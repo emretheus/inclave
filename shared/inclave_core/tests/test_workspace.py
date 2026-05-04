@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from enclave_core.errors import CLIError
-from enclave_core.workspace import (
+from inclave_core.errors import CLIError
+from inclave_core.workspace import (
     add_file,
     clear_workspace,
     find_file,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from datetime import UTC
 
-from enclave_cli import ui
+from inclave_cli import ui
 from rich.console import Console
 
 
@@ -18,7 +18,7 @@ def test_banner_shows_state() -> None:
     c, buf = _console()
     ui.banner(c, "llama3.2:latest", 2, "/tmp/x")
     out = buf.getvalue()
-    assert "enclave" in out
+    assert "inclave" in out
     assert "llama3.2:latest" in out
     assert "2 files" in out
     assert "/tmp/x" in out
@@ -73,7 +73,7 @@ def test_render_sandbox_output_shows_ms_for_short_runs() -> None:
 def test_render_files_marks_attached() -> None:
     from datetime import datetime
 
-    from enclave_core.workspace import FileEntry
+    from inclave_core.workspace import FileEntry
 
     e1 = FileEntry(
         id="aaa11111",

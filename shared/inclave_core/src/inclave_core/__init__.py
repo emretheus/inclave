@@ -1,6 +1,6 @@
-from enclave_core.config import (
+from inclave_core.config import (
     CONFIG_KEYS,
-    EnclaveConfig,
+    InClaveConfig,
     enclave_dir,
     load_config,
     log_dir,
@@ -8,15 +8,15 @@ from enclave_core.config import (
     sessions_dir,
     set_config_value,
 )
-from enclave_core.errors import (
+from inclave_core.errors import (
     CLIError,
     ConfigError,
-    EnclaveError,
+    InClaveError,
     OllamaError,
     OllamaUnavailableError,
     SandboxError,
 )
-from enclave_core.workspace import (
+from inclave_core.workspace import (
     FileEntry,
     Manifest,
     add_file,
@@ -34,9 +34,9 @@ __all__ = [
     "CONFIG_KEYS",
     "CLIError",
     "ConfigError",
-    "EnclaveConfig",
-    "EnclaveError",
     "FileEntry",
+    "InClaveConfig",
+    "InClaveError",
     "Manifest",
     "OllamaError",
     "OllamaUnavailableError",

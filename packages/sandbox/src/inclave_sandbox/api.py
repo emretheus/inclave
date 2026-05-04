@@ -28,7 +28,7 @@ class ExecutionResult:
 
 def execute_python(code: str, policy: SandboxPolicy) -> ExecutionResult:
     """Run Python source inside the sandbox. Returns stdout, stderr, etc."""
-    from enclave_sandbox.executor import execute_python_impl
+    from inclave_sandbox.executor import execute_python_impl
 
     return execute_python_impl(code, policy)
 

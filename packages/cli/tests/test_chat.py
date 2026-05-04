@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from enclave_cli.chat import run_chat
-from enclave_core.errors import OllamaUnavailableError
+from inclave_cli.chat import run_chat
+from inclave_core.errors import OllamaUnavailableError
 from rich.console import Console
 
 
@@ -34,7 +34,7 @@ def _run(
     inputs: list[str],
 ) -> int:
     it = iter(inputs)
-    monkeypatch.setattr("enclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+    monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
     return run_chat(out, err, model="m1", file_refs=[])
 
 
@@ -69,7 +69,7 @@ def test_unknown_slash(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_clear_resets_history(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     out, out_buf, err, _ = _consoles()
-    with patch("enclave_cli.chat._stream_chat", _fake_stream("hello")):
+    with patch("inclave_cli.chat._stream_chat", _fake_stream("hello")):
         rc = _run(out, err, monkeypatch, ["hi", "/clear", "/exit"])
     assert rc == 0
     assert "hello" in out_buf.getvalue()
@@ -90,7 +90,7 @@ def test_multi_turn_keeps_history(fake_home: Path, monkeypatch: pytest.MonkeyPat
         captured.append([dict(m) for m in messages])
         yield "ok"
 
-    with patch("enclave_cli.chat._stream_chat", fake):
+    with patch("inclave_cli.chat._stream_chat", fake):
         _run(out, err, monkeypatch, ["one", "two", "/exit"])
 
     assert len(captured) == 2
@@ -108,7 +108,7 @@ def test_eof_exits_cleanly(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> 
     def raise_eof(self, prompt=""):  # type: ignore[no-untyped-def]
         raise EOFError
 
-    monkeypatch.setattr("enclave_cli.chat.Console.input", raise_eof)
+    monkeypatch.setattr("inclave_cli.chat.Console.input", raise_eof)
     rc = run_chat(out, err, model="m1", file_refs=[])
     assert rc == 0
     assert "bye" in out_buf.getvalue()
@@ -122,7 +122,7 @@ def test_double_ctrl_c_exits(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -
         calls["n"] += 1
         raise KeyboardInterrupt
 
-    monkeypatch.setattr("enclave_cli.chat.Console.input", stub)
+    monkeypatch.setattr("inclave_cli.chat.Console.input", stub)
     rc = run_chat(out, err, model="m1", file_refs=[])
     assert rc == 0
     assert calls["n"] == 2
@@ -136,14 +136,14 @@ def test_ollama_unavailable_propagates(fake_home: Path, monkeypatch: pytest.Monk
         raise OllamaUnavailableError("Ollama is not running. Start it with: ollama serve")
         yield  # pragma: no cover
 
-    with patch("enclave_cli.chat._stream_chat", boom):
+    with patch("inclave_cli.chat._stream_chat", boom):
         rc = _run(out, err, monkeypatch, ["hi"])
     assert rc == 3
     assert "Ollama is not running" in err_buf.getvalue()
 
 
 def test_no_model_raises() -> None:
-    from enclave_core import CLIError
+    from inclave_core import CLIError
 
     out, _, err, _ = _consoles()
     with pytest.raises(CLIError):
@@ -151,7 +151,7 @@ def test_no_model_raises() -> None:
 
 
 def test_chat_command_invokes_repl(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from enclave_cli.main import app
+    from inclave_cli.main import app
     from typer.testing import CliRunner
 
     runner = CliRunner()
@@ -164,14 +164,14 @@ def test_chat_command_invokes_repl(fake_home: Path, monkeypatch: pytest.MonkeyPa
         called["kwargs"] = kwargs
         return 0
 
-    monkeypatch.setattr("enclave_cli.chat.run_chat", fake_run_chat)
+    monkeypatch.setattr("inclave_cli.chat.run_chat", fake_run_chat)
     result = runner.invoke(app, ["chat"])
     assert result.exit_code == 0
     assert called["model"] == "llama3.2"
 
 
 def test_chat_no_model(fake_home: Path) -> None:
-    from enclave_cli.main import app
+    from inclave_cli.main import app
     from typer.testing import CliRunner
 
     runner = CliRunner()
@@ -199,7 +199,7 @@ def test_run_no_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_executes_last_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When the model has emitted a python block, /run y → sandbox executes it."""
-    from enclave_sandbox.api import ExecutionResult
+    from inclave_sandbox.api import ExecutionResult
 
     def fake(model, messages):  # type: ignore[no-untyped-def]
         yield "here you go:\n```python\nprint('hi')\n```\n"
@@ -210,9 +210,9 @@ def test_run_executes_last_block(fake_home: Path, monkeypatch: pytest.MonkeyPatc
 
     out, out_buf, err, _ = _consoles()
     with (
-        patch("enclave_cli.chat._stream_chat", fake),
-        patch("enclave_cli.chat.execute_python", return_value=fake_exec, create=True),
-        patch("enclave_sandbox.execute_python", return_value=fake_exec),
+        patch("inclave_cli.chat._stream_chat", fake),
+        patch("inclave_cli.chat.execute_python", return_value=fake_exec, create=True),
+        patch("inclave_sandbox.execute_python", return_value=fake_exec),
     ):
         _run(out, err, monkeypatch, ["please write hi", "/run", "y", "/exit"])
     assert "stdout" in out_buf.getvalue()
@@ -225,7 +225,7 @@ def test_run_declines(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         yield "```python\nprint('boom')\n```"
 
     out, out_buf, err, _ = _consoles()
-    with patch("enclave_cli.chat._stream_chat", fake):
+    with patch("inclave_cli.chat._stream_chat", fake):
         _run(out, err, monkeypatch, ["go", "/run", "n", "/exit"])
     assert "not running" in out_buf.getvalue()
 
@@ -263,14 +263,14 @@ def test_drop_multiple_paths(
 
 def test_model_command_lists_when_no_arg(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """`/model` with no arg shows current + lists installed models."""
-    from enclave_ollama.api import ModelInfo
+    from inclave_ollama.api import ModelInfo
 
     fake = [
         ModelInfo(name="m1", size_bytes=0, family="", parameter_count="", is_default=False),
         ModelInfo(name="m2", size_bytes=0, family="", parameter_count="", is_default=False),
     ]
     out, out_buf, err, _ = _consoles()
-    with patch("enclave_cli.chat._list_local_model_names", return_value=["m1", "m2"]):
+    with patch("inclave_cli.chat._list_local_model_names", return_value=["m1", "m2"]):
         _run(out, err, monkeypatch, ["/model", "/exit"])
     output = out_buf.getvalue()
     assert "current model: m1" in output
@@ -288,8 +288,8 @@ def test_model_switch_to_known_model(fake_home: Path, monkeypatch: pytest.Monkey
 
     out, out_buf, err, _ = _consoles()
     with (
-        patch("enclave_cli.chat._list_local_model_names", return_value=["m1", "m2"]),
-        patch("enclave_cli.chat._stream_chat", fake),
+        patch("inclave_cli.chat._list_local_model_names", return_value=["m1", "m2"]),
+        patch("inclave_cli.chat._stream_chat", fake),
     ):
         _run(out, err, monkeypatch, ["/model m2", "hi", "/exit"])
     assert "switched to m2" in out_buf.getvalue()
@@ -298,7 +298,7 @@ def test_model_switch_to_known_model(fake_home: Path, monkeypatch: pytest.Monkey
 
 def test_model_switch_unknown_model(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     out, _, err, err_buf = _consoles()
-    with patch("enclave_cli.chat._list_local_model_names", return_value=["m1"]):
+    with patch("inclave_cli.chat._list_local_model_names", return_value=["m1"]):
         _run(out, err, monkeypatch, ["/model nope", "/exit"])
     assert "model not installed" in err_buf.getvalue()
 
@@ -321,7 +321,7 @@ def test_drop_path_plus_question_in_one_line(
         yield "answer"
 
     out, out_buf, err, _ = _consoles()
-    with patch("enclave_cli.chat._stream_chat", fake):
+    with patch("inclave_cli.chat._stream_chat", fake):
         _run(out, err, monkeypatch, [f"{src} summarize this", "/exit"])
     assert "hello" in captured["prompt"]
     assert "summarize this" in captured["prompt"]

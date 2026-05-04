@@ -9,10 +9,10 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from enclave_sandbox.api import ExecutionResult, SandboxPolicy
-from enclave_sandbox.errors import SandboxError
-from enclave_sandbox.profile import default_profile_path
-from enclave_sandbox.runtime import python_install_root, runtime_python
+from inclave_sandbox.api import ExecutionResult, SandboxPolicy
+from inclave_sandbox.errors import SandboxError
+from inclave_sandbox.profile import default_profile_path
+from inclave_sandbox.runtime import python_install_root, runtime_python
 
 SANDBOX_EXEC = "sandbox-exec"
 MAX_OUTPUT_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
@@ -53,7 +53,7 @@ def _make_preexec(policy: SandboxPolicy) -> Callable[[], None]:
 
 def _validate(policy: SandboxPolicy) -> None:
     if shutil.which(SANDBOX_EXEC) is None:
-        raise SandboxError(f"{SANDBOX_EXEC} not found on PATH. enclave-sandbox requires macOS.")
+        raise SandboxError(f"{SANDBOX_EXEC} not found on PATH. inclave-sandbox requires macOS.")
     if not policy.workdir.is_absolute():
         raise SandboxError(f"policy.workdir must be absolute, got {policy.workdir!r}")
     if not policy.workdir.is_dir():
@@ -102,7 +102,7 @@ def _run(
 
 
 def execute_python_impl(code: str, policy: SandboxPolicy) -> ExecutionResult:
-    """Concrete implementation. Public entry is enclave_sandbox.api.execute_python."""
+    """Concrete implementation. Public entry is inclave_sandbox.api.execute_python."""
     _validate(policy)
     profile = default_profile_path()
     py = runtime_python()

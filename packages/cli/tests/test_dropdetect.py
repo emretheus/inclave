@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from enclave_cli.dropdetect import parse_drop
+from inclave_cli.dropdetect import parse_drop
 
 
 def test_single_path(tmp_path: Path) -> None:

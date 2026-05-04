@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from enclave_core.workspace import FileEntry, find_file, list_files
+from inclave_core.workspace import FileEntry, find_file, list_files
 
-from enclave_cli.files import (
+from inclave_cli.files import (
     MAX_FILES,
     MAX_PER_FILE_BYTES,
     MAX_TOTAL_BYTES,
@@ -15,7 +15,7 @@ from enclave_cli.files import (
 )
 
 SYSTEM_PROMPT = """\
-You are Enclave Code, a privacy-first local file analysis assistant.
+You are InClave, a privacy-first local file analysis assistant.
 All data stays on the user's machine; you may never invent file contents.
 
 Rules:

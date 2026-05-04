@@ -1,6 +1,6 @@
-# enclave-cli
+# inclave-cli
 
-Entrypoint, REPL, file ingestion, and command routing for Enclave Code.
+Entrypoint, REPL, file ingestion, and command routing for InClave.
 
-Exposes the `enclave` console script. See the [root README](../../README.md) for
+Exposes the `inclave` console script. See the [root README](../../README.md) for
 end-user documentation.

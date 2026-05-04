@@ -1,4 +1,4 @@
-"""Enclave Code CLI entrypoint.
+"""InClave CLI entrypoint.
 
 Defines the `enclave` command and its subcommands per PROJECT_PLAN.md §6.
 """
@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 
 import typer
-from enclave_core import (
+from inclave_core import (
     CLIError,
-    EnclaveError,
+    InClaveError,
     OllamaUnavailableError,
     add_file,
     clear_workspace,
@@ -23,7 +23,7 @@ from enclave_core import (
     sessions_dir,
     set_config_value,
 )
-from enclave_core.config import CONFIG_KEYS
+from inclave_core.config import CONFIG_KEYS
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -39,13 +39,13 @@ EXIT_SANDBOX = 4
 EXIT_INTERNAL = 99
 
 app = typer.Typer(
-    name="enclave",
+    name="inclave",
     help="Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work.",
     no_args_is_help=True,
     add_completion=False,
 )
 
-config_app = typer.Typer(help="Manage Enclave configuration.", no_args_is_help=True)
+config_app = typer.Typer(help="Manage InClave configuration.", no_args_is_help=True)
 models_app = typer.Typer(help="Manage local Ollama models.", no_args_is_help=True)
 files_app = typer.Typer(
     help="Manage the local file workspace (privacy-first; nothing leaves your machine).",
@@ -56,8 +56,8 @@ app.add_typer(models_app, name="models")
 app.add_typer(files_app, name="files")
 
 
-def _exit_code_for(error: EnclaveError) -> int:
-    from enclave_core import ConfigError, SandboxError
+def _exit_code_for(error: InClaveError) -> int:
+    from inclave_core import ConfigError, SandboxError
 
     if isinstance(error, OllamaUnavailableError):
         return EXIT_OLLAMA_UNAVAILABLE
@@ -68,7 +68,7 @@ def _exit_code_for(error: EnclaveError) -> int:
     return EXIT_USER
 
 
-def _fail(error: EnclaveError) -> None:
+def _fail(error: InClaveError) -> None:
     err_console.print(f"[red]error:[/red] {error}")
     raise typer.Exit(code=_exit_code_for(error))
 
@@ -84,21 +84,21 @@ def _human_size(n: int) -> str:
 
 @app.command()
 def init() -> None:
-    """Create ~/.enclave/{config.json,sessions/,log/,workspaces/}."""
+    """Create ~/.inclave/{config.json,sessions/,log/,workspaces/}."""
     try:
         d = enclave_dir()
         sessions_dir()
         log_dir()
         cfg = load_config()
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 
-    console.print(f"[green]✓[/green] enclave home: {d}")
+    console.print(f"[green]✓[/green] inclave home: {d}")
     if cfg.default_model is None:
         console.print(
             "[yellow]no default model set[/yellow] — run: "
-            "[bold]enclave models pull <name>[/bold] then [bold]enclave models use <name>[/bold]"
+            "[bold]inclave models pull <name>[/bold] then [bold]inclave models use <name>[/bold]"
         )
     else:
         console.print(f"[green]✓[/green] default model: {cfg.default_model}")
@@ -109,11 +109,11 @@ def config_show() -> None:
     """Print current configuration."""
     try:
         cfg = load_config()
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 
-    table = Table(title="enclave config", show_lines=False)
+    table = Table(title="inclave config", show_lines=False)
     table.add_column("key", style="cyan")
     table.add_column("value")
     for key in CONFIG_KEYS:
@@ -130,7 +130,7 @@ def config_set(key: str, value: str) -> None:
     """
     try:
         set_config_value(key, value)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] {key} = {value}")
@@ -139,11 +139,11 @@ def config_set(key: str, value: str) -> None:
 @models_app.command("list")
 def models_list() -> None:
     """List locally available Ollama models."""
-    from enclave_ollama.api import list_models
+    from inclave_ollama.api import list_models
 
     try:
         models = list_models()
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 
@@ -174,12 +174,12 @@ def models_list() -> None:
 @models_app.command("pull")
 def models_pull(name: str) -> None:
     """Pull a model by name (streams progress)."""
-    from enclave_ollama.api import pull_model
+    from inclave_ollama.api import pull_model
 
     try:
         for line in pull_model(name):
             console.print(line)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] pulled {name}")
@@ -188,11 +188,11 @@ def models_pull(name: str) -> None:
 @models_app.command("remove")
 def models_remove(name: str) -> None:
     """Remove a locally installed model."""
-    from enclave_ollama.api import remove_model
+    from inclave_ollama.api import remove_model
 
     try:
         remove_model(name)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] removed {name}")
@@ -203,7 +203,7 @@ def models_use(name: str) -> None:
     """Set the default model."""
     try:
         set_config_value("default_model", name)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] default model: {name}")
@@ -221,7 +221,7 @@ def files_add(paths: list[Path] = typer.Argument(..., exists=True, dir_okay=Fals
             entry, was_new = add_file(p)
             tag = "[green]✓ added[/green]" if was_new else "[dim]· already in workspace[/dim]"
             console.print(f"{tag} {entry.id}  {entry.name}  ({_human_size(entry.bytes)})")
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
 
 
@@ -230,13 +230,13 @@ def files_list() -> None:
     """List files in the workspace."""
     try:
         files = list_files()
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 
     if not files:
         console.print(
-            "[dim]workspace is empty.[/dim] add a file: [bold]enclave files add <path>[/bold]"
+            "[dim]workspace is empty.[/dim] add a file: [bold]inclave files add <path>[/bold]"
         )
         return
 
@@ -256,7 +256,7 @@ def files_remove(ref: str = typer.Argument(..., help="File id (8-char) or file n
     """Remove a file from the workspace (id or name)."""
     try:
         entry = remove_file(ref)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] removed {entry.id}  {entry.name}")
@@ -273,7 +273,7 @@ def files_clear(
             return
     try:
         n = clear_workspace()
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(f"[green]✓[/green] removed {n} file{'s' if n != 1 else ''}")
@@ -285,14 +285,14 @@ def files_show(
     bytes_: int = typer.Option(2048, "--bytes", help="Max bytes of extracted text to show."),
 ) -> None:
     """Show the parsed/extracted text for a workspace file."""
-    from enclave_core import find_file
+    from inclave_core import find_file
 
-    from enclave_cli.files import parse
+    from inclave_cli.files import parse
 
     try:
         entry = find_file(ref)
         text = parse(entry.stored_path())
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 
@@ -309,17 +309,17 @@ def chat(
     ),
 ) -> None:
     """Start an interactive chat REPL (multi-turn, streaming, slash commands)."""
-    from enclave_cli.chat import run_chat
+    from inclave_cli.chat import run_chat
 
     try:
         cfg = load_config()
         chosen = model or cfg.default_model
         if not chosen:
             raise CLIError(
-                "no model selected. set one with: enclave models use <name>, or pass --model"
+                "no model selected. set one with: inclave models use <name>, or pass --model"
             )
         code = run_chat(console, err_console, chosen, file_refs=file_refs or None, config=cfg)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     if code != 0:
@@ -336,9 +336,9 @@ def ask(
     no_files: bool = typer.Option(False, "--no-files", help="Don't auto-attach workspace files."),
 ) -> None:
     """Ask a one-shot question over the workspace files."""
-    from enclave_ollama.api import generate
+    from inclave_ollama.api import generate
 
-    from enclave_cli.context import (
+    from inclave_cli.context import (
         SYSTEM_PROMPT,
         assemble_user_prompt,
         attach,
@@ -350,7 +350,7 @@ def ask(
         chosen = model or cfg.default_model
         if not chosen:
             raise CLIError(
-                "no model selected. set one with: enclave models use <name>, or pass --model"
+                "no model selected. set one with: inclave models use <name>, or pass --model"
             )
 
         if no_files:
@@ -367,7 +367,7 @@ def ask(
 
         prompt = assemble_user_prompt(question, attached)
         answer = generate(prompt, model=chosen, system=SYSTEM_PROMPT)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
     console.print(answer)
@@ -376,7 +376,7 @@ def ask(
 @app.command()
 def run(path: str = typer.Argument(..., help="Python file to run, or '-' for stdin.")) -> None:
     """Execute a Python script in the sandbox at the current working directory."""
-    from enclave_sandbox import SandboxPolicy, execute_python
+    from inclave_sandbox import SandboxPolicy, execute_python
 
     try:
         if path == "-":
@@ -396,7 +396,7 @@ def run(path: str = typer.Argument(..., help="Python file to run, or '-' for std
             memory_mb=cfg.sandbox_memory_mb,
         )
         result = execute_python(code, policy)
-    except EnclaveError as e:
+    except InClaveError as e:
         _fail(e)
         return
 

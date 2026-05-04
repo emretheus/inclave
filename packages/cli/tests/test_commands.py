@@ -8,10 +8,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from enclave_cli.main import app
-from enclave_core.errors import OllamaUnavailableError
-from enclave_ollama.api import ModelInfo
-from enclave_sandbox.api import ExecutionResult
+from inclave_cli.main import app
+from inclave_core.errors import OllamaUnavailableError
+from inclave_ollama.api import ModelInfo
+from inclave_sandbox.api import ExecutionResult
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -20,9 +20,9 @@ runner = CliRunner()
 def test_init_creates_dirs(fake_home: Path) -> None:
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0, result.output
-    assert (fake_home / ".enclave").is_dir()
-    assert (fake_home / ".enclave" / "sessions").is_dir()
-    assert (fake_home / ".enclave" / "log").is_dir()
+    assert (fake_home / ".inclave").is_dir()
+    assert (fake_home / ".inclave" / "sessions").is_dir()
+    assert (fake_home / ".inclave" / "log").is_dir()
 
 
 def test_init_idempotent(fake_home: Path) -> None:
@@ -79,7 +79,7 @@ def test_models_list_renders_table(fake_home: Path) -> None:
             is_default=True,
         ),
     ]
-    with patch("enclave_ollama.api.list_models", return_value=fake):
+    with patch("inclave_ollama.api.list_models", return_value=fake):
         result = runner.invoke(app, ["models", "list"])
     assert result.exit_code == 0
     assert "llama3.2" in result.output
@@ -87,7 +87,7 @@ def test_models_list_renders_table(fake_home: Path) -> None:
 
 def test_models_list_ollama_unavailable(fake_home: Path) -> None:
     with patch(
-        "enclave_ollama.api.list_models",
+        "inclave_ollama.api.list_models",
         side_effect=OllamaUnavailableError("Ollama is not running. Start it with: ollama serve"),
     ):
         result = runner.invoke(app, ["models", "list"])
@@ -103,7 +103,7 @@ def test_ask_without_model_fails(fake_home: Path) -> None:
 
 def test_ask_calls_generate(fake_home: Path) -> None:
     runner.invoke(app, ["models", "use", "llama3.2"])
-    with patch("enclave_ollama.api.generate", return_value="hi there") as gen:
+    with patch("inclave_ollama.api.generate", return_value="hi there") as gen:
         result = runner.invoke(app, ["ask", "hello"])
     assert result.exit_code == 0
     assert "hi there" in result.output
@@ -131,7 +131,7 @@ def test_run_executes(fake_home: Path, tmp_path: Path) -> None:
         timed_out=False,
         duration_ms=42,
     )
-    with patch("enclave_sandbox.execute_python", return_value=fake_result):
+    with patch("inclave_sandbox.execute_python", return_value=fake_result):
         result = runner.invoke(app, ["run", str(script)])
     assert result.exit_code == 0
     assert "hi" in result.output
@@ -148,6 +148,6 @@ def test_run_propagates_sandbox_failure(fake_home: Path, tmp_path: Path) -> None
         timed_out=False,
         duration_ms=10,
     )
-    with patch("enclave_sandbox.execute_python", return_value=fake_result):
+    with patch("inclave_sandbox.execute_python", return_value=fake_result):
         result = runner.invoke(app, ["run", str(script)])
     assert result.exit_code == 4  # EXIT_SANDBOX

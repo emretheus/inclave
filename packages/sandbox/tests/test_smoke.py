@@ -1,9 +1,9 @@
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-import enclave_sandbox as sb
+import inclave_sandbox as sb
 import pytest
-from enclave_core.errors import EnclaveError
+from inclave_core.errors import InClaveError
 
 PUBLIC_NAMES = (
     "SandboxPolicy",
@@ -19,8 +19,8 @@ def test_public_api_exports() -> None:
         assert hasattr(sb, name), f"missing public export: {name}"
 
 
-def test_sandbox_error_is_enclave_error() -> None:
-    assert issubclass(sb.SandboxError, EnclaveError)
+def test_sandbox_error_is_inclave_error() -> None:
+    assert issubclass(sb.SandboxError, InClaveError)
 
 
 def test_policy_defaults() -> None:

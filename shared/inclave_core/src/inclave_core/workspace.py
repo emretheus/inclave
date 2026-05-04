@@ -1,6 +1,6 @@
 """Local-only file workspace.
 
-Files are *copied* into ~/.enclave/workspaces/<name>/files/ keyed by content hash,
+Files are *copied* into ~/.inclave/workspaces/<name>/files/ keyed by content hash,
 so the original is never depended on. A manifest (manifest.json) records original
 path, size, hash, and add time.
 
@@ -17,8 +17,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from enclave_core.config import enclave_dir
-from enclave_core.errors import CLIError, ConfigError
+from inclave_core.config import enclave_dir
+from inclave_core.errors import CLIError, ConfigError
 
 _DEFAULT = "default"
 
