@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enclave_cli.inputline import COMMANDS, _SlashCompleter
+from inclave_cli.inputline import COMMANDS, _SlashCompleter
 from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
 

@@ -1,10 +1,10 @@
-# enclave_ollama
+# inclave_ollama
 
-The LLM integration layer for **Enclave Code**.
+The LLM integration layer for **InClave**.
 
 ## Overview
 
-This package acts as the bridge between the Enclave CLI and the local Ollama daemon. It provides a strictly typed, stateless, and synchronous Python API for model management and text inference.
+This package acts as the bridge between the InClave CLI and the local Ollama daemon. It provides a strictly typed, stateless, and synchronous Python API for model management and text inference.
 
 It is designed to isolate the rest of the application from the underlying HTTP implementations and daemon connection issues.
 
@@ -54,8 +54,8 @@ While this package can interact with any model available in the Ollama registry,
 The CLI package interacts with this module statelessly:
 
 ```python
-import enclave_ollama as oll
-from enclave_core.errors import OllamaUnavailableError
+import inclave_ollama as oll
+from inclave_core.errors import OllamaUnavailableError
 
 try:
     # Set the default model

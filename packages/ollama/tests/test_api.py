@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import ollama
 import pytest
-from enclave_ollama.api import (
+from inclave_ollama.api import (
     generate,
     get_default,
     is_model_fully_vram_compatible,
@@ -14,11 +14,11 @@ from enclave_ollama.api import (
     set_default,
     stream,
 )
-from enclave_ollama.errors import OllamaError, OllamaUnavailableError
+from inclave_ollama.errors import OllamaError, OllamaUnavailableError
 
 
-@patch("enclave_ollama.api.get_default")
-@patch("enclave_ollama.api.ollama.list")
+@patch("inclave_ollama.api.get_default")
+@patch("inclave_ollama.api.ollama.list")
 def test_list_models_success(mock_list: MagicMock, mock_get_default: MagicMock) -> None:
     """Test that list_models correctly parses the Ollama API response."""
 
@@ -47,7 +47,7 @@ def test_list_models_success(mock_list: MagicMock, mock_get_default: MagicMock) 
     assert models[1].is_default is False
 
 
-@patch("enclave_ollama.api.ollama.list")
+@patch("inclave_ollama.api.ollama.list")
 def test_list_models_unavailable(mock_list: MagicMock) -> None:
     """Test that list_models raises the correct domain error when daemon is down."""
     mock_list.side_effect = httpx.ConnectError("Connection refused")
@@ -56,7 +56,7 @@ def test_list_models_unavailable(mock_list: MagicMock) -> None:
         list_models()
 
 
-@patch("enclave_ollama.api.ollama.chat")
+@patch("inclave_ollama.api.ollama.chat")
 def test_generate_success(mock_chat: MagicMock) -> None:
     """Test that generate extracts the correct string content from the response."""
     mock_chat.return_value = {"message": {"role": "assistant", "content": "Hello from mock!"}}
@@ -70,7 +70,7 @@ def test_generate_success(mock_chat: MagicMock) -> None:
     )
 
 
-@patch("enclave_ollama.api.ollama.chat")
+@patch("inclave_ollama.api.ollama.chat")
 def test_generate_api_error(mock_chat: MagicMock) -> None:
     """Test response when Ollama API returns an error (e.g., model not found)."""
     mock_chat.side_effect = ollama.ResponseError("model 'llama3' not found")
@@ -85,7 +85,7 @@ def test_generate_requires_model() -> None:
         generate("Hello", model="")
 
 
-@patch("enclave_ollama.api.load_config")
+@patch("inclave_ollama.api.load_config")
 def test_get_default_success(mock_load_config: MagicMock) -> None:
     """Test whether the correct model is being read from the configuration file."""
     mock_config = MagicMock()
@@ -95,8 +95,8 @@ def test_get_default_success(mock_load_config: MagicMock) -> None:
     assert get_default() == "qwen2:latest"
 
 
-@patch("enclave_ollama.api.save_config")
-@patch("enclave_ollama.api.load_config")
+@patch("inclave_ollama.api.save_config")
+@patch("inclave_ollama.api.load_config")
 def test_set_default_success(mock_load_config: MagicMock, mock_save_config: MagicMock) -> None:
     """Test whether the default model is correctly written to the configuration file."""
     mock_config = MagicMock()
@@ -108,7 +108,7 @@ def test_set_default_success(mock_load_config: MagicMock, mock_save_config: Magi
     mock_save_config.assert_called_once_with(mock_config)
 
 
-@patch("enclave_ollama.api.load_config")
+@patch("inclave_ollama.api.load_config")
 def test_config_errors_are_wrapped(mock_load_config: MagicMock) -> None:
     """Test system safety when the config file cannot be read or is corrupted."""
     mock_load_config.side_effect = Exception("File is locked")
@@ -120,14 +120,14 @@ def test_config_errors_are_wrapped(mock_load_config: MagicMock) -> None:
         set_default("llama3")
 
 
-@patch("enclave_ollama.api.ollama.delete")
+@patch("inclave_ollama.api.ollama.delete")
 def test_remove_model_success(mock_delete: MagicMock) -> None:
     """Test that remove_model calls the Ollama delete API correctly."""
     remove_model("llama3")
     mock_delete.assert_called_once_with("llama3")
 
 
-@patch("enclave_ollama.api.ollama.delete")
+@patch("inclave_ollama.api.ollama.delete")
 def test_remove_model_error(mock_delete: MagicMock) -> None:
     """Test that API errors during removal are wrapped correctly."""
     mock_delete.side_effect = ollama.ResponseError("model not found")
@@ -136,7 +136,7 @@ def test_remove_model_error(mock_delete: MagicMock) -> None:
         remove_model("llama3")
 
 
-@patch("enclave_ollama.api.ollama.pull")
+@patch("inclave_ollama.api.ollama.pull")
 def test_pull_model_success(mock_pull: MagicMock) -> None:
     """Test that pull_model yields human-readable progress strings."""
 
@@ -157,7 +157,7 @@ def test_pull_model_success(mock_pull: MagicMock) -> None:
     mock_pull.assert_called_once_with("llama3", stream=True)
 
 
-@patch("enclave_ollama.api.ollama.pull")
+@patch("inclave_ollama.api.ollama.pull")
 def test_pull_model_error(mock_pull: MagicMock) -> None:
     """Test that API errors during model pull are wrapped correctly."""
     mock_pull.side_effect = ollama.ResponseError("repository not found")
@@ -166,7 +166,7 @@ def test_pull_model_error(mock_pull: MagicMock) -> None:
         list(pull_model("invalid_model"))
 
 
-@patch("enclave_ollama.api.ollama.chat")
+@patch("inclave_ollama.api.ollama.chat")
 def test_stream_success(mock_chat: MagicMock) -> None:
     """Test that stream yields content chunks correctly."""
 
@@ -194,7 +194,7 @@ def test_stream_requires_model() -> None:
         list(stream("Hello", model=""))
 
 
-@patch("enclave_ollama.api.ollama.chat")
+@patch("inclave_ollama.api.ollama.chat")
 def test_stream_error(mock_chat: MagicMock) -> None:
     """Test that API errors during streaming are wrapped correctly."""
     mock_chat.side_effect = ollama.ResponseError("model not found")
@@ -203,7 +203,7 @@ def test_stream_error(mock_chat: MagicMock) -> None:
         list(stream("Hi", model="invalid_model"))
 
 
-@patch("enclave_ollama.api.httpx.get")
+@patch("inclave_ollama.api.httpx.get")
 def test_requires_ollama_success(mock_get: MagicMock) -> None:
     """Test that the decorator allows execution if Ollama is running."""
 
@@ -217,7 +217,7 @@ def test_requires_ollama_success(mock_get: MagicMock) -> None:
     mock_get.assert_called_once_with("http://127.0.0.1:11434/api/tags", timeout=2.0)
 
 
-@patch("enclave_ollama.api.httpx.get")
+@patch("inclave_ollama.api.httpx.get")
 def test_requires_ollama_failure(mock_get: MagicMock) -> None:
     """Test that the decorator raises OllamaUnavailableError if Ollama is down."""
 
@@ -232,7 +232,7 @@ def test_requires_ollama_failure(mock_get: MagicMock) -> None:
         dummy_function()
 
 
-@patch("enclave_ollama.api.get_total_ram_gb")
+@patch("inclave_ollama.api.get_total_ram_gb")
 def test_is_model_fully_vram_compatible(mock_get_ram: MagicMock) -> None:
     """Tests the boundary values for VRAM capacity calculations on Apple Silicon."""
 

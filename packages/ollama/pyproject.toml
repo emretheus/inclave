@@ -1,17 +1,23 @@
 [project]
-name = "enclave-ollama"
+name = "inclave-ollama"
 version = "0.1.0"
 description = "Local LLM inference and model management via Ollama"
 readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
 requires-python = ">=3.12"
 dependencies = [
-    "enclave-core",
+    "inclave-core",
     "ollama>=0.2.0",
     "httpx",
 ]
 
 [tool.uv.sources]
-enclave-core = { workspace = true }
+inclave-core = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -26,12 +32,12 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/enclave_ollama"]
+packages = ["src/inclave_ollama"]
 
 [tool.mypy]
-packages = ["enclave_ollama"]
+packages = ["inclave_ollama"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = "enclave_core.*"
+module = "inclave_core.*"
 ignore_missing_imports = true

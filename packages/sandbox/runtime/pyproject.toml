@@ -1,7 +1,7 @@
 [project]
-name = "enclave-sandbox-runtime"
+name = "inclave-sandbox-runtime"
 version = "0.0.0"
-description = "Frozen Python runtime bundled into the enclave-sandbox jail. Not a workspace member."
+description = "Frozen Python runtime bundled into the inclave-sandbox jail. Not a workspace member."
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "pandas>=2.2",

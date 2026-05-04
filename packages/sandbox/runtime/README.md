@@ -1,6 +1,6 @@
 # sandbox runtime
 
-Frozen Python runtime bundled into the `enclave-sandbox` jail. The Seatbelt
+Frozen Python runtime bundled into the `inclave-sandbox` jail. The Seatbelt
 profile permits read+exec of this directory's `.venv/`, so any library installed
 here is available to model-generated code at runtime.
 
@@ -23,8 +23,8 @@ a clear "Run: cd ... && uv sync" error if it's missing.
 Adding to the runtime is a deliberate, three-place change in one PR:
 
 1. Add the dep here in `pyproject.toml`, run `uv lock`, commit `uv.lock`.
-2. Update PROJECT_PLAN.md §13.1 (the bundled-libs table).
-3. Update the system prompt in `packages/cli/src/enclave_cli/prompts.py` so
+2. Update .github/internal/PROJECT_PLAN.md §13.1 (the bundled-libs table).
+3. Update the system prompt in `packages/cli/src/inclave_cli/prompts.py` so
    the model knows the new import is available.
 
 Without all three, model-generated code that uses the new lib will silently

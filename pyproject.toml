@@ -1,16 +1,41 @@
 [project]
-name = "enclave-code"
-version = "0.0.0"
-description = "Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work"
+name = "inclave"
+version = "0.1.0"
+description = "Local-first, privacy-preserving CLI for macOS — chat with and analyze your files using a local LLM, with sandboxed code execution."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
+maintainers = [{ name = "Caelusway", email = "53878581+caelusway@users.noreply.github.com" }]
 requires-python = ">=3.12"
+keywords = ["cli", "ollama", "sandbox", "privacy", "macos", "file-analysis", "local-llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
 dependencies = [
-    "enclave-cli",
+    "inclave-cli",
     "httpx>=0.28.1",
     "ollama>=0.6.1",
-    "enclave-core",
-    "enclave-ollama",
-    "enclave-sandbox",
+    "inclave-core",
+    "inclave-ollama",
+    "inclave-sandbox",
 ]
+
+[project.urls]
+Homepage = "https://github.com/caelusway/inclave"
+Repository = "https://github.com/caelusway/inclave"
+Issues = "https://github.com/caelusway/inclave/issues"
 
 [tool.uv]
 package = false
@@ -19,10 +44,10 @@ package = false
 members = ["packages/*", "shared/*"]
 
 [tool.uv.sources]
-enclave-cli = { workspace = true }
-enclave-core = { workspace = true }
-enclave-ollama = { workspace = true }
-enclave-sandbox = { workspace = true }
+inclave-cli = { workspace = true }
+inclave-core = { workspace = true }
+inclave-ollama = { workspace = true }
+inclave-sandbox = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -42,12 +67,12 @@ select = ["E", "F", "W", "I", "B", "UP", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Typer commands intentionally use `typer.Option(...)` / `typer.Argument(...)`
 # as defaults — that's the framework's API.
-"packages/cli/src/enclave_cli/main.py" = ["B008"]
+"packages/cli/src/inclave_cli/main.py" = ["B008"]
 # Markdown headers in our parser intentionally use the multiplication sign.
-"packages/cli/src/enclave_cli/files.py" = ["RUF001"]
+"packages/cli/src/inclave_cli/files.py" = ["RUF001"]
 # UI uses non-ASCII glyphs (›, ●, …, ✓, ✗) by design.
-"packages/cli/src/enclave_cli/ui.py" = ["RUF001"]
-"packages/cli/src/enclave_cli/chat.py" = ["RUF001"]
+"packages/cli/src/inclave_cli/ui.py" = ["RUF001"]
+"packages/cli/src/inclave_cli/chat.py" = ["RUF001"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -60,12 +85,12 @@ mypy_path = [
     "packages/cli/src",
     "packages/ollama/src",
     "packages/sandbox/src",
-    "shared/enclave_core/src",
+    "shared/inclave_core/src",
 ]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = "enclave_core.*"
+module = "inclave_core.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -82,7 +107,7 @@ pythonpath = [
     "packages/cli/src",
     "packages/ollama/src",
     "packages/sandbox/src",
-    "shared/enclave_core/src",
+    "shared/inclave_core/src",
 ]
 
 [tool.coverage.run]

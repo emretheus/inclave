@@ -4,11 +4,11 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
-    "enclave-cli",
-    "enclave-code",
-    "enclave-core",
-    "enclave-ollama",
-    "enclave-sandbox",
+    "inclave",
+    "inclave-cli",
+    "inclave-core",
+    "inclave-ollama",
+    "inclave-sandbox",
 ]
 
 [[package]]
@@ -157,125 +157,6 @@ wheels = [
 ]
 
 [[package]]
-name = "enclave-cli"
-version = "0.1.0"
-source = { editable = "packages/cli" }
-dependencies = [
-    { name = "enclave-core" },
-    { name = "enclave-ollama" },
-    { name = "enclave-sandbox" },
-    { name = "openpyxl" },
-    { name = "prompt-toolkit" },
-    { name = "pypdf" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "enclave-core", editable = "shared/enclave_core" },
-    { name = "enclave-ollama", editable = "packages/ollama" },
-    { name = "enclave-sandbox", editable = "packages/sandbox" },
-    { name = "openpyxl", specifier = ">=3.1" },
-    { name = "prompt-toolkit", specifier = ">=3.0" },
-    { name = "pypdf", specifier = ">=4.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "rich", specifier = ">=13.7.0" },
-    { name = "typer", specifier = ">=0.12.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "enclave-code"
-version = "0.0.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "enclave-cli" },
-    { name = "enclave-core" },
-    { name = "enclave-ollama" },
-    { name = "enclave-sandbox" },
-    { name = "httpx" },
-    { name = "ollama" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "enclave-cli", editable = "packages/cli" },
-    { name = "enclave-core", editable = "shared/enclave_core" },
-    { name = "enclave-ollama", editable = "packages/ollama" },
-    { name = "enclave-sandbox", editable = "packages/sandbox" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "ollama", specifier = ">=0.6.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.10" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-cov", specifier = ">=5.0" },
-    { name = "ruff", specifier = ">=0.5" },
-]
-
-[[package]]
-name = "enclave-core"
-version = "0.0.0"
-source = { editable = "shared/enclave_core" }
-
-[[package]]
-name = "enclave-ollama"
-version = "0.1.0"
-source = { editable = "packages/ollama" }
-dependencies = [
-    { name = "enclave-core" },
-    { name = "httpx" },
-    { name = "ollama" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "respx" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "enclave-core", editable = "shared/enclave_core" },
-    { name = "httpx" },
-    { name = "ollama", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "enclave-sandbox"
-version = "0.0.0"
-source = { editable = "packages/sandbox" }
-dependencies = [
-    { name = "enclave-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "enclave-core", editable = "shared/enclave_core" }]
-
-[[package]]
 name = "et-xmlfile"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -329,6 +210,125 @@ sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a72335
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
 ]
+
+[[package]]
+name = "inclave"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "httpx" },
+    { name = "inclave-cli" },
+    { name = "inclave-core" },
+    { name = "inclave-ollama" },
+    { name = "inclave-sandbox" },
+    { name = "ollama" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "inclave-cli", editable = "packages/cli" },
+    { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "inclave-ollama", editable = "packages/ollama" },
+    { name = "inclave-sandbox", editable = "packages/sandbox" },
+    { name = "ollama", specifier = ">=0.6.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.10" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "ruff", specifier = ">=0.5" },
+]
+
+[[package]]
+name = "inclave-cli"
+version = "0.1.0"
+source = { editable = "packages/cli" }
+dependencies = [
+    { name = "inclave-core" },
+    { name = "inclave-ollama" },
+    { name = "inclave-sandbox" },
+    { name = "openpyxl" },
+    { name = "prompt-toolkit" },
+    { name = "pypdf" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "inclave-ollama", editable = "packages/ollama" },
+    { name = "inclave-sandbox", editable = "packages/sandbox" },
+    { name = "openpyxl", specifier = ">=3.1" },
+    { name = "prompt-toolkit", specifier = ">=3.0" },
+    { name = "pypdf", specifier = ">=4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+    { name = "rich", specifier = ">=13.7.0" },
+    { name = "typer", specifier = ">=0.12.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "inclave-core"
+version = "0.1.0"
+source = { editable = "shared/inclave_core" }
+
+[[package]]
+name = "inclave-ollama"
+version = "0.1.0"
+source = { editable = "packages/ollama" }
+dependencies = [
+    { name = "httpx" },
+    { name = "inclave-core" },
+    { name = "ollama" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "respx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx" },
+    { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "ollama", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+    { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "inclave-sandbox"
+version = "0.1.0"
+source = { editable = "packages/sandbox" }
+dependencies = [
+    { name = "inclave-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "inclave-core", editable = "shared/inclave_core" }]
 
 [[package]]
 name = "iniconfig"

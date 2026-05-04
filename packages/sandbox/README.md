@@ -1,6 +1,6 @@
-# enclave-sandbox
+# inclave-sandbox
 
-Isolated code execution for enclave-code. Lets the CLI hand model-generated
+Isolated code execution for inclave. Lets the CLI hand model-generated
 Python (or shell) to a jailed process that cannot escape the user's working
 directory or reach the network.
 
@@ -48,7 +48,7 @@ We do **not** try to prevent:
 
 The bundled Python runtime lives at `runtime/` (built per machine via
 `uv lock`). It contains a frozen set of libraries: pandas, numpy, openpyxl,
-pypdf, matplotlib. See PROJECT_PLAN.md §13 for the full list.
+pypdf, matplotlib. See .github/internal/PROJECT_PLAN.md §13 for the full list.
 
 ## Known limitations
 
@@ -67,13 +67,13 @@ When in doubt, treat this sandbox as defense-in-depth, not a hermetic seal.
 ## Public API
 
 ```python
-from enclave_sandbox import (
+from inclave_sandbox import (
     SandboxPolicy, ExecutionResult, SandboxError,
     execute_python, execute_shell,
 )
 ```
 
-See `src/enclave_sandbox/api.py` for full signatures.
+See `src/inclave_sandbox/api.py` for full signatures.
 
 ## Tests
 

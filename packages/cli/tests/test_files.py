@@ -1,13 +1,13 @@
-"""Tests for the parser dispatcher and `enclave files` commands."""
+"""Tests for the parser dispatcher and `inclave files` commands."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-from enclave_cli.files import parse
-from enclave_cli.main import app
-from enclave_core.errors import CLIError
+from inclave_cli.files import parse
+from inclave_cli.main import app
+from inclave_core.errors import CLIError
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -122,7 +122,7 @@ def test_files_show(fake_home: Path, tmp_path: Path) -> None:
 
 
 def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
-    """`enclave ask` auto-attaches workspace files and includes them in the prompt."""
+    """`inclave ask` auto-attaches workspace files and includes them in the prompt."""
     from unittest.mock import patch
 
     src = tmp_path / "secret.txt"
@@ -137,7 +137,7 @@ def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
         captured["system"] = system
         return "ok"
 
-    with patch("enclave_ollama.api.generate", side_effect=fake_generate):
+    with patch("inclave_ollama.api.generate", side_effect=fake_generate):
         r = runner.invoke(app, ["ask", "what is the secret?"])
     assert r.exit_code == 0
     assert "the secret is 42" in captured["prompt"]  # type: ignore[operator]
@@ -158,7 +158,7 @@ def test_ask_no_files_flag(fake_home: Path, tmp_path: Path) -> None:
         captured["prompt"] = prompt
         return "ok"
 
-    with patch("enclave_ollama.api.generate", side_effect=fake_generate):
+    with patch("inclave_ollama.api.generate", side_effect=fake_generate):
         r = runner.invoke(app, ["ask", "hi", "--no-files"])
     assert r.exit_code == 0
     assert "DO NOT INCLUDE" not in captured["prompt"]  # type: ignore[operator]

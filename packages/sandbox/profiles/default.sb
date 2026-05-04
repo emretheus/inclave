@@ -1,4 +1,4 @@
-;; enclave-sandbox default Seatbelt profile.
+;; inclave-sandbox default Seatbelt profile.
 ;;
 ;; Parameters (passed via `sandbox-exec -D KEY=VALUE`):
 ;;   WORKDIR      — absolute path to the user's working directory (read+write)
