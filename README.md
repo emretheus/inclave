@@ -144,8 +144,7 @@ Larger inputs are truncated with a clear marker.
 ## Status
 
 `v0.1` in progress — a working demo of the core flow (workspace, file analysis,
-chat, sandbox `/run`). See [`PROJECT_PLAN.md`](PROJECT_PLAN.md) for the full
-roadmap.
+chat, sandbox `/run`). Expect rough edges; APIs may change.
 
 **macOS-only** by design: the sandbox depends on Seatbelt (`sandbox-exec`).
 Linux support (via `bubblewrap`) is on the roadmap; Windows is out of scope.
@@ -203,8 +202,6 @@ for everyone who has contributed.
 
 Issues and pull requests welcome. Please:
 
-- Read [`PROJECT_PLAN.md`](PROJECT_PLAN.md) first — it describes the intended
-  scope and decision history.
 - Add tests for code you change. CI gates lint, format, type-check, and tests.
 - Keep PRs small and focused; cross-package contract changes (anything in an
   `api.py`) need wider review.

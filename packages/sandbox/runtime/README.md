@@ -23,7 +23,7 @@ a clear "Run: cd ... && uv sync" error if it's missing.
 Adding to the runtime is a deliberate, three-place change in one PR:
 
 1. Add the dep here in `pyproject.toml`, run `uv lock`, commit `uv.lock`.
-2. Update PROJECT_PLAN.md §13.1 (the bundled-libs table).
+2. Update .github/internal/PROJECT_PLAN.md §13.1 (the bundled-libs table).
 3. Update the system prompt in `packages/cli/src/enclave_cli/prompts.py` so
    the model knows the new import is available.
 
