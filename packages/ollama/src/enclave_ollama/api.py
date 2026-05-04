@@ -34,14 +34,16 @@ def list_models() -> list[ModelInfo]:
         current_default = get_default()
 
         for m in response.get("models", []):
-            details = m.get("details", {})
+            details = m.get("details", {}) or {}
+            # Ollama 0.4+ returns "model"; older clients used "name". Accept both.
+            name = m.get("model") or m.get("name") or ""
             models.append(
                 ModelInfo(
-                    name=m.get("name", ""),
+                    name=name,
                     size_bytes=m.get("size", 0),
                     family=details.get("family", ""),
                     parameter_count=details.get("parameter_size", ""),
-                    is_default=(m.get("name", "") == current_default),
+                    is_default=(name == current_default),
                 )
             )
         return models

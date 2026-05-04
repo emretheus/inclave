@@ -39,6 +39,16 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# Typer commands intentionally use `typer.Option(...)` / `typer.Argument(...)`
+# as defaults — that's the framework's API.
+"packages/cli/src/enclave_cli/main.py" = ["B008"]
+# Markdown headers in our parser intentionally use the multiplication sign.
+"packages/cli/src/enclave_cli/files.py" = ["RUF001"]
+# UI uses non-ASCII glyphs (›, ●, …, ✓, ✗) by design.
+"packages/cli/src/enclave_cli/ui.py" = ["RUF001"]
+"packages/cli/src/enclave_cli/chat.py" = ["RUF001"]
+
 [tool.ruff.format]
 quote-style = "double"
 
@@ -58,6 +68,10 @@ explicit_package_bases = true
 module = "enclave_core.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["openpyxl", "openpyxl.*", "pypdf", "pypdf.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["packages", "shared", "tests"]
 addopts = "-ra"
@@ -65,8 +79,10 @@ markers = [
     "integration: requires external services (Ollama running, etc.) — opt-in",
 ]
 pythonpath = [
+    "packages/cli/src",
     "packages/ollama/src",
-    "shared/enclave_core/src"
+    "packages/sandbox/src",
+    "shared/enclave_core/src",
 ]
 
 [tool.coverage.run]
