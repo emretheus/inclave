@@ -19,7 +19,10 @@ set -euo pipefail
 
 REPO_URL="https://github.com/emretheus/inclave.git"
 SRC_DIR="${HOME}/.cache/inclave-src"
-BRANCH="${ENCLAVE_BRANCH:-master}"
+# Pin to a released tag by default so a broken commit on master can't break new
+# installs. Override with ENCLAVE_REF=master (or any branch/tag/sha) to track
+# the bleeding edge.
+REF="${ENCLAVE_REF:-${ENCLAVE_BRANCH:-v0.1.0}}"
 
 # ---------- pretty output ----------
 if [ -t 1 ]; then
@@ -66,16 +69,16 @@ fi
 
 # ---------- source ----------
 if [ -d "$SRC_DIR/.git" ]; then
-    step "Updating $SRC_DIR"
-    git -C "$SRC_DIR" fetch --quiet origin "$BRANCH"
-    git -C "$SRC_DIR" checkout --quiet "$BRANCH"
-    git -C "$SRC_DIR" reset --hard --quiet "origin/$BRANCH"
+    step "Updating $SRC_DIR to $REF"
+    git -C "$SRC_DIR" fetch --quiet --tags --force origin
+    git -C "$SRC_DIR" -c advice.detachedHead=false checkout --quiet --force "$REF"
 else
-    step "Cloning into $SRC_DIR"
+    step "Cloning into $SRC_DIR at $REF"
     rm -rf "$SRC_DIR"
-    git clone --quiet --branch "$BRANCH" "$REPO_URL" "$SRC_DIR"
+    git clone --quiet "$REPO_URL" "$SRC_DIR"
+    git -C "$SRC_DIR" -c advice.detachedHead=false checkout --quiet --force "$REF"
 fi
-ok "Source ready"
+ok "Source ready ($REF)"
 
 # ---------- install ----------
 step "Installing inclave-cli"
