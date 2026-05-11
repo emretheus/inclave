@@ -201,6 +201,28 @@ def models_remove(name: str) -> None:
 @models_app.command("use")
 def models_use(name: str) -> None:
     """Set the default model."""
+    from inclave_ollama.api import list_models
+
+    try:
+        models = list_models()
+    except InClaveError:
+        models = []
+
+    if models:
+        available = [m.name for m in models]
+        match = next(
+            (n for n in available if n == name or n.split(":", 1)[0] == name),
+            None,
+        )
+        if match is None:
+            err_console.print(
+                f"[red]error:[/red] model not installed: {name}\n"
+                f"  available: {', '.join(available)}\n"
+                f"  pull one with: [bold]ollama pull {name}[/bold]"
+            )
+            raise typer.Exit(code=EXIT_USER)
+        name = match  # resolve to full canonical name e.g. llama3.2 → llama3.2:3b
+
     try:
         set_config_value("default_model", name)
     except InClaveError as e:

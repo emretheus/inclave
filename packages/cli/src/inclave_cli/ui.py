@@ -181,6 +181,8 @@ def help_text() -> str:
         "  [cyan]/run[/cyan]                 run the last python block in the sandbox\n"
         "  [cyan]/clear[/cyan]               wipe conversation (keeps files)\n"
         "  [cyan]/reset[/cyan]               wipe conversation AND files\n"
+        "  [cyan]/model[/cyan]               show current model and available models\n"
+        "  [cyan]/model[/cyan] <name>        switch model mid-session\n"
         "  [cyan]/exit[/cyan]                quit (also: bare `exit`, `quit`, or Ctrl+D)\n"
         "\n"
         "[bold]drag & drop[/bold]\n"
