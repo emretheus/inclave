@@ -322,7 +322,7 @@ Per-member task breakdowns are kept internally under `.github/internal/tasks/`.
 | 1 | Seatbelt profile shipped as a `.sb` file under `packages/sandbox/profiles/`, rendered with `(workdir)` substitution at runtime. | Auditable in source control. |
 | 2 | Ollama availability checked once per CLI invocation via a precondition decorator on commands that need it. On failure, print one clear install/start hint and exit 1. | Avoids per-call latency, single clean error message. |
 | 3 | `enclave run -` reads code from stdin. | Composes well with Unix pipelines. |
-| 4 | Config file: TOML at `~/.enclave/config.toml`. | Human-readable, comments allowed. |
+| 4 | Config file: JSON at `~/.inclave/config.json` (atomic write, dataclass round-trip). Originally planned as TOML; switched to JSON for stdlib-only round-tripping with no extra parser dep. | Human-readable enough, no extra dependency. |
 | 5 | License: **MIT** (decide before first public push if this changes). | Permissive, simple, common for tooling. |
 | 6 | Workdir = current working directory at invocation time. | Matches shell convention; makes "run on this project" obvious. |
 | 7 | `/run` requires `y/N` confirmation by default; `--auto-run` / `auto_run=true` in config skips it. | Sandbox limits damage but explicit consent is still right for MVP. |
@@ -472,23 +472,29 @@ The file blocks are stable across turns (cached) so attaching files doesn't mult
 
 ## 15. Sessions, History, Errors, Logging
 
-### 15.1 Sessions (MVP: one slot)
+### 15.1 Sessions
 
-- `enclave chat` autosaves to `~/.enclave/sessions/last.json` after every assistant turn.
-- `enclave chat --resume` reloads the last session (messages + attached file paths). If a previously-attached file no longer exists, drop it with a warning.
+- `inclave chat` autosaves to `~/.inclave/sessions/last.json` after every assistant turn.
+- `inclave chat --resume` reloads the last session (messages + attached workspace
+  file ids). If a previously-attached file id is no longer in the workspace,
+  drop it with a warning.
+- `/save <name>` saves the current conversation under a chosen name; `inclave
+  sessions list` shows everything saved. Deletion is post-MVP (delete the file).
 - `/clear` wipes conversation but keeps file context. `/reset` wipes both.
-- Named sessions, listing, deletion are **post-MVP**.
 
-Schema:
+Schema (v1, written by `inclave_core.sessions.Session`):
 ```json
 {
   "version": 1,
   "model": "llama3.2",
   "workdir": "/abs/path",
-  "files": ["/abs/path/foo.xlsx"],
-  "messages": [{"role": "user|assistant", "content": "...", "ts": "ISO8601"}]
+  "file_ids": ["abcd1234"],
+  "messages": [{"role": "system|user|assistant", "content": "..."}],
+  "saved_at": "2026-05-11T12:34:56+00:00"
 }
 ```
+Note: messages are file-ids of workspace entries (not absolute paths) — the
+workspace is the canonical store, sessions only reference it.
 
 ### 15.2 Errors
 

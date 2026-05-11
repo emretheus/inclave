@@ -16,20 +16,25 @@ from inclave_core import (
     add_file,
     clear_workspace,
     enclave_dir,
+    get_logger,
     list_files,
+    list_sessions,
     load_config,
     log_dir,
     remove_file,
     sessions_dir,
     set_config_value,
+    setup_logging,
 )
 from inclave_core.config import CONFIG_KEYS
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+# Consoles are rebuilt by the top-level callback when --no-color is passed.
 console = Console()
 err_console = Console(stderr=True)
+log = get_logger()
 
 EXIT_OK = 0
 EXIT_USER = 1
@@ -41,7 +46,10 @@ EXIT_INTERNAL = 99
 app = typer.Typer(
     name="inclave",
     help="Local-first, privacy-preserving CLI for macOS — sandbox + Ollama + file work.",
-    no_args_is_help=True,
+    # Bare `inclave` (no subcommand) runs chat with onboarding. Subcommand groups
+    # below still default to printing their own help when invoked without args.
+    no_args_is_help=False,
+    invoke_without_command=True,
     add_completion=False,
 )
 
@@ -51,9 +59,41 @@ files_app = typer.Typer(
     help="Manage the local file workspace (privacy-first; nothing leaves your machine).",
     no_args_is_help=True,
 )
+sessions_app = typer.Typer(help="Manage saved chat sessions.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
 app.add_typer(models_app, name="models")
 app.add_typer(files_app, name="files")
+app.add_typer(sessions_app, name="sessions")
+
+
+@app.callback()
+def _root(
+    ctx: typer.Context,
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Write operational logs (no message content) to ~/.inclave/log/inclave.log.",
+    ),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI colors in all output."),
+) -> None:
+    """Global flags applied before any subcommand runs."""
+    global console, err_console
+    setup_logging(debug=debug)
+    if no_color:
+        # Rebuild module-level consoles with color stripped. Rich also honors
+        # the NO_COLOR env var; setting it lets nested Consoles inherit.
+        import os
+
+        os.environ["NO_COLOR"] = "1"
+        console = Console(no_color=True, highlight=False)
+        err_console = Console(stderr=True, no_color=True, highlight=False)
+    log.debug("inclave invoked (debug=%s no_color=%s)", debug, no_color)
+
+    # Bare `inclave` with no subcommand → drop into chat. We call chat()
+    # with explicit defaults rather than ctx.invoke() because Typer's option
+    # descriptors aren't resolved unless click parses argv into them.
+    if ctx.invoked_subcommand is None:
+        chat(model=None, file_refs=[], resume=False)
 
 
 def _exit_code_for(error: InClaveError) -> int:
@@ -84,7 +124,11 @@ def _human_size(n: int) -> str:
 
 @app.command()
 def init() -> None:
-    """Create ~/.inclave/{config.json,sessions/,log/,workspaces/}."""
+    """Create ~/.inclave/{config.json,sessions/,log/,workspaces/}.
+
+    Not required for normal use — `inclave chat` sets everything up on first
+    run. Kept around for scripted provisioning.
+    """
     try:
         d = enclave_dir()
         sessions_dir()
@@ -97,8 +141,7 @@ def init() -> None:
     console.print(f"[green]✓[/green] inclave home: {d}")
     if cfg.default_model is None:
         console.print(
-            "[yellow]no default model set[/yellow] — run: "
-            "[bold]inclave models pull <name>[/bold] then [bold]inclave models use <name>[/bold]"
+            "[dim]tip: just run [bold]inclave[/bold] — i'll handle Ollama and model setup.[/dim]"
         )
     else:
         console.print(f"[green]✓[/green] default model: {cfg.default_model}")
@@ -329,23 +372,53 @@ def chat(
     file_refs: list[str] = typer.Option(
         None, "--file", "-f", help="Attach a workspace file by id or name (repeatable)."
     ),
+    resume: bool = typer.Option(
+        False, "--resume", help="Reload the most recent chat (~/.inclave/sessions/last.json)."
+    ),
 ) -> None:
-    """Start an interactive chat REPL (multi-turn, streaming, slash commands)."""
+    """Start an interactive chat REPL (multi-turn, streaming, slash commands).
+
+    The REPL opens immediately. If Ollama isn't running or no model is set,
+    the banner shows that — type `/setup` to fix it from inside, or just send
+    a message and the error will surface inline.
+    """
     from inclave_cli.chat import run_chat
+    from inclave_cli.onboarding import ensure_dirs
 
     try:
+        ensure_dirs()
         cfg = load_config()
-        chosen = model or cfg.default_model
-        if not chosen:
-            raise CLIError(
-                "no model selected. set one with: inclave models use <name>, or pass --model"
-            )
-        code = run_chat(console, err_console, chosen, file_refs=file_refs or None, config=cfg)
+        chosen = model or cfg.default_model or ""
+        log.debug("chat start model=%s resume=%s", chosen or "(none)", resume)
+        code = run_chat(
+            console,
+            err_console,
+            chosen,
+            file_refs=file_refs or None,
+            config=cfg,
+            resume=resume,
+        )
     except InClaveError as e:
+        log.warning("chat exit on error: %s", type(e).__name__)
         _fail(e)
         return
     if code != 0:
         raise typer.Exit(code=code)
+
+
+@sessions_app.command("list")
+def sessions_list() -> None:
+    """List saved chat sessions."""
+    items = list_sessions()
+    if not items:
+        console.print("[dim]no sessions saved yet.[/dim]")
+        return
+    table = Table(title="chat sessions")
+    table.add_column("name", style="cyan")
+    table.add_column("saved at")
+    for name, ts in items:
+        table.add_row(name, ts or "—")
+    console.print(table)
 
 
 @app.command()
@@ -366,14 +439,16 @@ def ask(
         attach,
         select_files,
     )
+    from inclave_cli.onboarding import ensure_default_model, ensure_dirs, ensure_ollama_running
 
     try:
+        ensure_dirs()
+        ensure_ollama_running(console, err_console)
         cfg = load_config()
         chosen = model or cfg.default_model
         if not chosen:
-            raise CLIError(
-                "no model selected. set one with: inclave models use <name>, or pass --model"
-            )
+            # Reuse the model picker (interactive when a TTY, raises otherwise).
+            chosen = ensure_default_model(console, err_console)
 
         if no_files:
             entries = []
@@ -388,8 +463,11 @@ def ask(
             console.print(f"[dim]attached: {shown}[/dim]")
 
         prompt = assemble_user_prompt(question, attached)
+        log.debug("ask: model=%s files=%d prompt_bytes=%d", chosen, len(attached), len(prompt))
         answer = generate(prompt, model=chosen, system=SYSTEM_PROMPT)
+        log.debug("ask: ok bytes=%d", len(answer))
     except InClaveError as e:
+        log.warning("ask: failed (%s)", type(e).__name__)
         _fail(e)
         return
     console.print(answer)
@@ -417,8 +495,21 @@ def run(path: str = typer.Argument(..., help="Python file to run, or '-' for std
             cpu_seconds=cfg.sandbox_cpu_seconds,
             memory_mb=cfg.sandbox_memory_mb,
         )
+        log.debug(
+            "run: src=%s cpu=%ds mem=%dMB",
+            label,
+            cfg.sandbox_cpu_seconds,
+            cfg.sandbox_memory_mb,
+        )
         result = execute_python(code, policy)
+        log.debug(
+            "run: exit=%d timed_out=%s duration_ms=%d",
+            result.exit_code,
+            result.timed_out,
+            result.duration_ms,
+        )
     except InClaveError as e:
+        log.warning("run: failed (%s)", type(e).__name__)
         _fail(e)
         return
 

@@ -16,6 +16,14 @@ from inclave_core.errors import (
     OllamaUnavailableError,
     SandboxError,
 )
+from inclave_core.logging import get_logger, setup_logging
+from inclave_core.sessions import (
+    LAST,
+    Session,
+    list_sessions,
+    load_session,
+    save_session,
+)
 from inclave_core.workspace import (
     FileEntry,
     Manifest,
@@ -32,6 +40,7 @@ from inclave_core.workspace import (
 
 __all__ = [
     "CONFIG_KEYS",
+    "LAST",
     "CLIError",
     "ConfigError",
     "FileEntry",
@@ -41,19 +50,25 @@ __all__ = [
     "OllamaError",
     "OllamaUnavailableError",
     "SandboxError",
+    "Session",
     "add_file",
     "clear_workspace",
     "enclave_dir",
     "find_file",
+    "get_logger",
     "kind_for",
     "list_files",
+    "list_sessions",
     "load_config",
     "load_manifest",
+    "load_session",
     "log_dir",
     "remove_file",
     "save_config",
     "save_manifest",
+    "save_session",
     "sessions_dir",
     "set_config_value",
+    "setup_logging",
     "workspace_dir",
 ]

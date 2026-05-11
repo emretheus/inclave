@@ -16,14 +16,18 @@ from pathlib import Path
 import httpx
 import ollama
 from inclave_core import (
-    CLIError,
+    LAST,
     FileEntry,
     InClaveConfig,
     InClaveError,
     OllamaUnavailableError,
+    Session,
     add_file,
     find_file,
+    get_logger,
     list_files,
+    load_session,
+    save_session,
 )
 from inclave_core.errors import OllamaError
 from rich.console import Console
@@ -39,7 +43,34 @@ from inclave_cli.context import (
 from inclave_cli.dropdetect import parse_drop
 from inclave_cli.inputline import make_session, read_input
 
+log = get_logger()
+
 CODE_BLOCK_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
+
+
+def _autosave(
+    model: str,
+    messages: list[dict[str, str]],
+    session_files: list[FileEntry],
+    name: str = LAST,
+) -> None:
+    """Persist the running conversation. Best-effort — never aborts the REPL."""
+    try:
+        sess = Session(
+            model=model,
+            workdir=str(Path.cwd()),
+            file_ids=[f.id for f in session_files],
+            messages=messages,
+        )
+        save_session(sess, name)
+        log.debug(
+            "autosaved session name=%s turns=%d files=%d",
+            name,
+            sum(1 for m in messages if m["role"] == "assistant"),
+            len(session_files),
+        )
+    except Exception as exc:  # pragma: no cover — never crash the chat on a disk issue
+        log.warning("autosave failed: %s", exc)
 
 
 def _stream_chat(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
@@ -161,22 +192,78 @@ def run_chat(
     *,
     file_refs: list[str] | None = None,
     config: InClaveConfig | None = None,
+    resume: bool = False,
 ) -> int:
-    if not model:
-        raise CLIError(
-            "no model selected. set one with: inclave models use <name>, or pass --model"
-        )
-
+    # Empty model is allowed — the REPL still opens; the banner shows the
+    # missing-model state and the user can type `/setup` to fix it.
     cfg = config or InClaveConfig()
     messages: list[dict[str, str]] = []
-    session_files: list[FileEntry] = _resolve_initial_files(file_refs)
+    session_files: list[FileEntry] = []
+    resumed_from: str | None = None
+
+    if resume:
+        prior = load_session(LAST)
+        if prior is None:
+            ui.info(console, "no saved session at ~/.inclave/sessions/last.json")
+        else:
+            messages = list(prior.messages)
+            # Re-resolve attached file ids; drop any that were removed since.
+            for fid in prior.file_ids:
+                try:
+                    session_files.append(find_file(fid))
+                except InClaveError:
+                    ui.warn(err_console, f"attached file no longer in workspace: {fid}")
+            # Override the model from saved session only if caller didn't pass --model.
+            if prior.model and model == (config.default_model if config else None):
+                model = prior.model
+            resumed_from = prior.saved_at or "unknown"
+            log.debug(
+                "chat: resumed model=%s turns=%d files=%d",
+                model,
+                sum(1 for m in messages if m["role"] == "assistant"),
+                len(session_files),
+            )
+
+    if not resume or not resumed_from:
+        # Fresh session — apply --file refs (None == all workspace files).
+        session_files = _resolve_initial_files(file_refs)
+
     current_model = [model]  # mutable holder so /model can swap mid-session
 
     ui.banner(console, model, len(session_files), str(Path.cwd()))
+    if resumed_from:
+        n_turns = sum(1 for m in messages if m["role"] == "assistant")
+        plural = "s" if n_turns != 1 else ""
+        ui.info(console, f"resumed: {n_turns} turn{plural} · saved {resumed_from}")
     if session_files:
         names = ", ".join(f.name for f in session_files)
         ui.info(console, f"attached: {names}")
         console.print()
+
+    # If prerequisites are missing, walk the user through setup right now —
+    # interactive only. Non-TTY (CliRunner, pipes) skips and lets the REPL
+    # surface inline warnings on first message instead.
+    import sys as _sys
+
+    if _sys.stdin.isatty() and _sys.stdout.isatty():
+        from inclave_cli.onboarding import (
+            _ollama_up,
+            ensure_default_model,
+            ensure_ollama_running,
+        )
+
+        try:
+            if not _ollama_up():
+                ensure_ollama_running(console, err_console)
+            if not current_model[0]:
+                current_model[0] = ensure_default_model(console, err_console)
+                console.print()
+        except InClaveError as e:
+            # Don't kill the REPL — surface the error and let the user retry
+            # via /setup or just chat (which will warn again on first send).
+            ui.error(err_console, str(e))
+            ui.info(console, "you can retry with [bold]/setup[/bold] any time.")
+            console.print()
 
     read = _make_reader(session_files, console)
     pending_exit = False
@@ -236,6 +323,15 @@ def run_chat(
         else:
             question_text = user_input
 
+        # Need a model before we can stream. Guide the user instead of crashing.
+        if not current_model[0]:
+            ui.warn(
+                err_console,
+                "no model set yet. run [bold]/setup[/bold] to install one, "
+                "or [bold]/model <name>[/bold] if you already have one.",
+            )
+            continue
+
         # Build the prompt with files attached and system prompt
         attached_files, warnings = attach(session_files)
         for w in warnings:
@@ -268,7 +364,12 @@ def run_chat(
             spinner.stop()
             console.print()
             ui.error(err_console, str(e))
-            return 3
+            ui.info(
+                err_console,
+                "type [bold]/setup[/bold] when ollama is back, or [bold]/exit[/bold] to quit.",
+            )
+            messages.pop()  # drop the user message; don't poison history
+            continue
         except InClaveError as e:
             spinner.stop()
             console.print()
@@ -290,6 +391,7 @@ def run_chat(
                 workdir=str(Path.cwd()),
             )
             console.print()
+            _autosave(current_model[0], messages, session_files)
         else:
             messages.pop()
 
@@ -383,6 +485,22 @@ def _handle_slash(
         _handle_model_switch(arg, current_model, console, err_console)
         return False
 
+    if cmd == "setup":
+        from inclave_cli.onboarding import (
+            ensure_default_model,
+            ensure_ollama_running,
+        )
+
+        try:
+            ensure_ollama_running(console, err_console)
+            chosen = ensure_default_model(console, err_console)
+        except InClaveError as e:
+            ui.error(err_console, str(e))
+            return False
+        current_model[0] = chosen
+        ui.ok(console, f"ready · model: {chosen}")
+        return False
+
     if cmd == "files":
         attached_ids = {s.id for s in session_files}
         if arg == "all":
@@ -426,6 +544,28 @@ def _handle_slash(
             ui.warn(err_console, f"no attached file matches: {arg}")
         else:
             ui.info(console, f"detached: {arg}")
+        return False
+
+    if cmd == "save":
+        name = arg.strip()
+        if not name:
+            ui.warn(err_console, "usage: /save <name>")
+            return False
+        if not any(m["role"] == "assistant" for m in messages):
+            ui.warn(err_console, "nothing to save yet — no assistant turns")
+            return False
+        sess = Session(
+            model=current_model[0],
+            workdir=str(Path.cwd()),
+            file_ids=[f.id for f in session_files],
+            messages=messages,
+        )
+        try:
+            save_session(sess, name)
+        except InClaveError as e:
+            ui.error(err_console, str(e))
+            return False
+        ui.ok(console, f"saved as {name}")
         return False
 
     if cmd == "run":
