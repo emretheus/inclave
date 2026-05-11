@@ -49,11 +49,11 @@ pick a model from a curated list (`llama3.2`, `llama3.1:8b`,
 
 ## Quick demo
 
-```
+````text
 $ inclave
 ●  inclave  qwen2.5-coder:7b  workspace: 0 files  workdir: ~/Downloads
 
-›  ~/Downloads/mrr_2026.csv  print total mrr_usd growth in % from the first to the last row
+›  ~/Downloads/mrr_2026.csv  print total mrr_usd growth in %
 
   + mrr_2026.csv  (added)
 
@@ -69,99 +69,71 @@ $ inclave
   ╰────────────────────────────────╯
   ran · exit 0 · 1.2s
 
-  MRR_USD grew by approximately 96 % from September to April —
-  significant revenue growth over this period.
-```
+  MRR_USD grew by approximately 96 % from September to April.
+````
 
-The python block ran **automatically** in a temporary sandbox directory
-that contained only your attached files. No network access, no escape
-to `~/.ssh`. The model then read the actual stdout and wrote the
-plain-language answer above.
+The python block ran **automatically** in a temporary sandbox: no network,
+no escape to `~/.ssh`, output fed back to the model so the summary is
+grounded in real stdout — not a prediction.
 
 ## Why InClave?
 
-You probably already know:
-
-- Cloud AI assistants want your files in their data center.
-- Letting an LLM run code on your machine is convenient — and dangerous.
-
-InClave splits the difference. The model is local, so nothing leaves the
-machine. The execution is sandboxed, so the model can't read your `~/.ssh`,
-hit your VPN, exfiltrate to the network, or write outside the run directory.
-
-It's an **offline AI code interpreter** that respects your filesystem.
+Cloud AI wants your files. Letting an LLM run code on your laptop is
+convenient *and* dangerous. InClave keeps the model local and sandboxes
+the execution — an **offline AI code interpreter** that respects your
+filesystem.
 
 ## Inside the chat
 
-- **Python blocks the model writes run automatically** in the sandbox. The
-  stdout is shown to you and fed back to the model so the next reply is
-  grounded in what actually ran — not what the model guessed.
+- **Python blocks auto-run** in the sandbox; the model reads its own
+  stdout and writes the follow-up.
 - **Drop a path** from Finder, with or without a question on the same line.
-- **`/help`** — list every slash command.
-- **`/run`** — manually re-execute the last python block (escape hatch
-  for when files in the workspace changed).
-- **`/setup`** — re-run the interactive setup (start Ollama, pick a model).
-- **`/model <name>`** — switch model mid-chat.
-- **`/save <name>`** — name and save the current conversation.
-- **`/files`** — list attached files.
-- **`/clear`** / **`/reset`** — wipe history (and optionally files).
+- `/help` `/run` `/setup` `/model` `/save` `/files` `/clear` `/reset` —
+  see `/help` for full descriptions.
 
 Sessions autosave after every reply. Resume the last with
 `inclave chat --resume`; `inclave sessions list` shows everything saved.
 
 ## Supported file types
 
-| Type   | Extensions                                        | Notes                                            |
-|--------|---------------------------------------------------|--------------------------------------------------|
-| Text   | `.txt` `.md`                                      | Read as-is                                       |
-| Tables | `.csv`                                            | First 1,000 rows as a markdown table             |
-| Excel  | `.xlsx` `.xls`                                    | Each sheet as a markdown table                   |
-| PDF    | `.pdf`                                            | Text via `pypdf`                                 |
-| Code   | `.py .js .ts .go .rs .java .sh .sql .json .yaml`… | Fenced markdown so the model knows it's source   |
+| Type   | Extensions                                        | Notes                                |
+|--------|---------------------------------------------------|--------------------------------------|
+| Text   | `.txt` `.md`                                      | Read as-is                           |
+| Tables | `.csv`                                            | First 1,000 rows as markdown         |
+| Excel  | `.xlsx` `.xls`                                    | Each sheet as markdown               |
+| PDF    | `.pdf`                                            | Text via `pypdf`                     |
+| Code   | `.py .js .ts .go .rs .java .sh .sql .json .yaml`… | Fenced as source                     |
 
-Up to 5 files per session, 200 KB total extracted text, 100 KB per file.
-Larger inputs are truncated with a clear marker.
+Limits: 5 files / 200 KB total / 100 KB per file. Excess is truncated.
 
 ## Privacy contract
 
-- The CLI only talks to `127.0.0.1:11434` (the local Ollama daemon). CI has a
-  guard that fails the build if any production module references a
-  non-localhost URL.
-- The sandbox profile (`packages/sandbox/profiles/default.sb`) blocks network
-  access, denies all file I/O outside the run directory, and applies CPU /
-  memory / wall-clock limits via `RLIMIT`.
-- Files in your workspace live at `~/.inclave/workspaces/default/` as
-  content-hashed copies. Delete everything with `inclave files clear` or
-  `rm -rf ~/.inclave`.
-- No telemetry, no analytics, no auto-update, no remote calls.
-- Logs are off by default. `--debug` writes operational events (command
-  names, timing, exit codes — **never** message content) to
-  `~/.inclave/log/inclave.log`.
+- Talks only to `127.0.0.1:11434` (local Ollama). CI guard rejects any
+  non-localhost URL in production code.
+- Sandbox profile blocks network, denies file I/O outside the run dir,
+  enforces CPU / memory / wall-clock rlimits.
+- Workspace files live at `~/.inclave/workspaces/default/` as content-
+  hashed copies. `inclave files clear` or `rm -rf ~/.inclave` wipes them.
+- No telemetry, no analytics, no auto-update. Logs are off by default;
+  `--debug` writes operational events only — **never** message content.
 
 ## Configuration
 
-Settings live in `~/.inclave/config.json`:
+`~/.inclave/config.json` — edit by hand or with `inclave config set <key> <value>`:
 
-| Key                    | Default     | Purpose                                            |
-|------------------------|-------------|----------------------------------------------------|
-| `default_model`        | `null`      | Model used when `--model` isn't passed             |
-| `sandbox_cpu_seconds`  | `30`        | CPU time limit per sandbox run                     |
-| `sandbox_memory_mb`    | `512`       | Memory limit per sandbox run                       |
+| Key                    | Default | Purpose                                     |
+|------------------------|---------|---------------------------------------------|
+| `default_model`        | `null`  | Model used when `--model` isn't passed      |
+| `sandbox_cpu_seconds`  | `30`    | CPU time limit per sandbox run              |
+| `sandbox_memory_mb`    | `512`   | Memory limit per sandbox run                |
 
-Edit with `inclave config set <key> <value>` or by hand.
-
-Global flags (work on every subcommand):
-
-- `--debug` — write operational logs to `~/.inclave/log/inclave.log`.
-- `--no-color` — disable ANSI colors. `NO_COLOR=1` works too.
+Global flags: `--debug` (operational logs only) and `--no-color`
+(also via `NO_COLOR=1`).
 
 ## Status & platform
 
-`v0.1` — the core flow (workspace, file analysis, chat, sandbox `/run`,
-sessions) works end-to-end. APIs may still change.
-
-Today, InClave runs **on macOS only**. The sandbox depends on Seatbelt
-(`sandbox-exec`), which is macOS-specific.
+`v0.1`, macOS only — the sandbox depends on Seatbelt (`sandbox-exec`).
+Core flow is stable; APIs may still change.
 
 ## Roadmap
 
@@ -180,49 +152,32 @@ Today, InClave runs **on macOS only**. The sandbox depends on Seatbelt
 
 ## Manual install
 
-If you'd rather not pipe `curl` into `sh`:
+Don't want to pipe `curl` into `sh`?
 
 ```bash
-brew install ollama
-ollama serve &
-ollama pull llama3.2
-
-git clone https://github.com/emretheus/inclave.git
-cd inclave
+brew install ollama && ollama serve &
+git clone https://github.com/emretheus/inclave.git && cd inclave
 uv tool install --from packages/cli inclave-cli
 ```
 
 ## Development
 
 ```bash
-git clone https://github.com/emretheus/inclave.git
-cd inclave
 uv sync --all-packages --all-extras
-
 uv run pytest                   # 170+ tests
-uv run ruff check .             # lint
-uv run ruff format --check .    # format
-uv run mypy packages shared     # type-check (strict)
+uv run ruff check . && uv run ruff format --check .
+uv run mypy packages shared     # strict
 ```
 
-Repo layout (a [`uv`](https://docs.astral.sh/uv/) workspace):
-
-```
-packages/
-  cli/          # Typer app, REPL, file parsers, prompts, onboarding
-  ollama/       # Local LLM inference + model management
-  sandbox/      # macOS Seatbelt isolated executor
-shared/
-  inclave_core/ # Config, errors, workspace, sessions, logging
-```
+A [`uv`](https://docs.astral.sh/uv/) workspace: `packages/cli` (Typer +
+REPL), `packages/ollama` (inference), `packages/sandbox` (Seatbelt
+executor), `shared/inclave_core` (config, sessions, logging).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Short version:
-
-- Open an issue first for non-trivial changes.
-- Tests are required on every PR. CI gates lint, format, type-check,
-  coverage, and the no-outbound-HTTP guard.
+See [CONTRIBUTING.md](CONTRIBUTING.md) — issues for non-trivial changes,
+tests required, CI gates lint / format / type-check / coverage / the
+no-outbound-HTTP guard.
 
 ## Authors
 
