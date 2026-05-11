@@ -42,10 +42,17 @@ class AttachedFile:
 
 
 def select_files(refs: list[str] | None) -> list[FileEntry]:
-    """If refs given, resolve them; otherwise return everything in workspace."""
-    if refs:
-        return [find_file(r) for r in refs]
-    return list_files()
+    """Resolve --file refs for one-shot `ask`.
+
+    Empty / None → no files. Use `--file all` (or repeat `--file <name>` per
+    file) to opt in; previously this auto-attached every workspace file,
+    which leaked old context into unrelated questions.
+    """
+    if not refs:
+        return []
+    if refs == ["all"]:
+        return list_files()
+    return [find_file(r) for r in refs]
 
 
 def attach(entries: list[FileEntry]) -> tuple[list[AttachedFile], list[str]]:

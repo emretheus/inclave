@@ -121,8 +121,10 @@ def test_files_show(fake_home: Path, tmp_path: Path) -> None:
     assert "Title" in r.output
 
 
-def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
-    """`inclave ask` auto-attaches workspace files and includes them in the prompt."""
+def test_ask_attaches_workspace_when_asked(fake_home: Path, tmp_path: Path) -> None:
+    """`inclave ask --file all` attaches every workspace file. Without
+    --file the workspace is not auto-injected (would leak unrelated
+    context into the prompt)."""
     from unittest.mock import patch
 
     src = tmp_path / "secret.txt"
@@ -139,11 +141,21 @@ def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
         captured["system"] = system
         return "ok"
 
+    # Without --file: workspace is NOT attached.
     with (
         patch("inclave_cli.onboarding._ollama_up", return_value=True),
         patch("inclave_ollama.api.generate", side_effect=fake_generate),
     ):
         r = runner.invoke(app, ["ask", "what is the secret?"])
+    assert r.exit_code == 0
+    assert "the secret is 42" not in captured["prompt"]  # type: ignore[operator]
+
+    # With --file all: workspace is attached.
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_ollama.api.generate", side_effect=fake_generate),
+    ):
+        r = runner.invoke(app, ["ask", "--file", "all", "what is the secret?"])
     assert r.exit_code == 0
     assert "the secret is 42" in captured["prompt"]  # type: ignore[operator]
     assert "privacy-first" in (captured["system"] or "")  # type: ignore[operator]

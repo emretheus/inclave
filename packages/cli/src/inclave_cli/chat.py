@@ -94,10 +94,17 @@ def _stream_chat(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
 
 
 def _resolve_initial_files(refs: list[str] | None) -> list[FileEntry]:
-    if refs is None:
-        return list(list_files())
+    """Resolve --file refs to FileEntry objects.
+
+    None / empty → start with an empty session. The workspace can contain
+    leftover files from earlier sessions; attaching them all by default
+    would silently inject unwanted context into the next chat. Users who
+    want everything pass `--file all` or use `/files all` once inside.
+    """
     if not refs:
         return []
+    if refs == ["all"]:
+        return list(list_files())
     return [find_file(r) for r in refs]
 
 
