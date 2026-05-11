@@ -101,9 +101,7 @@ fi
 
 # ---------- done ----------
 echo
-ok "Installed. Next steps:"
-printf "    %sinclave init%s\n" "$BOLD" "$RESET"
-printf "    %sinclave models use llama3.2%s   %s(or another local model)%s\n" "$BOLD" "$RESET" "$DIM" "$RESET"
-printf "    %sinclave chat%s\n" "$BOLD" "$RESET"
+ok "Installed. Next:"
+printf "    %sinclave%s   %s(starts ollama + picks a model on first run)%s\n" "$BOLD" "$RESET" "$DIM" "$RESET"
 echo
 printf "%sDocs:%s https://github.com/emretheus/inclave\n" "$DIM" "$RESET"

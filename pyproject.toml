@@ -1,7 +1,7 @@
 [project]
 name = "inclave"
 version = "0.1.0"
-description = "Local-first, privacy-preserving CLI for macOS — chat with and analyze your files using a local LLM, with sandboxed code execution."
+description = "Local-first AI CLI for macOS. Chat with your PDFs, Excel, CSV, and code using a local LLM (Ollama). Model-generated Python runs in a Seatbelt sandbox with no network. Private, offline, no telemetry."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
@@ -11,7 +11,28 @@ authors = [
 ]
 maintainers = [{ name = "InClave Authors", email = "ulgacemre@gmail.com" }]
 requires-python = ">=3.12"
-keywords = ["cli", "ollama", "sandbox", "privacy", "macos", "file-analysis", "local-llm"]
+keywords = [
+    "ai",
+    "ai-assistant",
+    "cli",
+    "code-execution",
+    "code-interpreter",
+    "file-analysis",
+    "llama",
+    "local-ai",
+    "local-first",
+    "local-llm",
+    "macos",
+    "offline",
+    "ollama",
+    "pdf",
+    "privacy",
+    "private-ai",
+    "repl",
+    "sandbox",
+    "seatbelt",
+    "self-hosted",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
