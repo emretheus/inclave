@@ -53,24 +53,24 @@ pick a model from a curated list (`llama3.2`, `llama3.1:8b`,
 $ inclave
 ●  inclave  llama3.2  workspace: 0 files  workdir: ~/Downloads
 
-›  ~/Downloads/mrr_2026.csv  what was MRR growth from Sep to Apr?
+›  ~/Downloads/mrr_2026.csv  print total mrr_usd growth in % from the first to the last row
 
   + mrr_2026.csv  (added)
 
   ```python
   import pandas as pd
   df = pd.read_csv("mrr_2026.csv")
-  start, end = df.iloc[0]["mrr_usd"], df.iloc[-1]["mrr_usd"]
-  print(f"start: ${start:,}  end: ${end:,}  growth: {(end/start - 1)*100:.1f}%")
+  total = (df["mrr_usd"].iloc[-1] - df["mrr_usd"].iloc[0]) / df["mrr_usd"].iloc[0] * 100
+  print(f"Total MRR_USD growth: {total:.2f}%")
   ```
 
-  ╭─────────────── stdout ───────────────╮
-  │ start: $52,780  end: $103,480  growth: 96.1%
-  ╰──────────────────────────────────────╯
-  ran · exit 0 · 1.3s
+  ╭──────────── stdout ────────────╮
+  │ Total MRR_USD growth: 96.06%
+  ╰────────────────────────────────╯
+  ran · exit 0 · 1.2s
 
-  MRR nearly doubled — up 96 % over 8 months, from $52,780 in
-  September to $103,480 in April.
+  MRR_USD grew by approximately 96 % from September to April —
+  significant revenue growth over this period.
 ```
 
 The python block ran **automatically** in a temporary sandbox directory
