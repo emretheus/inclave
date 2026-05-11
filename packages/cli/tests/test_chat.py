@@ -223,12 +223,22 @@ def test_run_no_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert "no python code block" in err_buf.getvalue()
 
 
-def test_run_executes_last_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """When the model has emitted a python block, /run y → sandbox executes it."""
+def test_auto_run_executes_python_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the model produces a ```python``` block, it runs automatically
+    in the sandbox without the user typing /run."""
     from inclave_sandbox.api import ExecutionResult
 
+    # First call: model writes code. Second call (follow-up after sandbox
+    # output is fed back): model summarizes.
+    streams = iter(
+        [
+            "here you go:\n```python\nprint('hi')\n```\n",
+            "the script printed 'hi'.",
+        ]
+    )
+
     def fake(model, messages):  # type: ignore[no-untyped-def]
-        yield "here you go:\n```python\nprint('hi')\n```\n"
+        yield from next(streams)
 
     fake_exec = ExecutionResult(
         stdout="hi\n", stderr="", exit_code=0, timed_out=False, duration_ms=10
@@ -237,23 +247,49 @@ def test_run_executes_last_block(fake_home: Path, monkeypatch: pytest.MonkeyPatc
     out, out_buf, err, _ = _consoles()
     with (
         patch("inclave_cli.chat._stream_chat", fake),
-        patch("inclave_cli.chat.execute_python", return_value=fake_exec, create=True),
         patch("inclave_sandbox.execute_python", return_value=fake_exec),
     ):
-        _run(out, err, monkeypatch, ["please write hi", "/run", "y", "/exit"])
-    assert "stdout" in out_buf.getvalue()
-    assert "hi" in out_buf.getvalue()
-    assert "ran · " in out_buf.getvalue()
+        _run(out, err, monkeypatch, ["please write hi", "/exit"])
+    output = out_buf.getvalue()
+    # Sandbox ran without the user typing /run.
+    assert "stdout" in output
+    assert "ran · " in output
+    # Model followed up with a plain-language summary.
+    assert "the script printed" in output
 
 
-def test_run_declines(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_slash_run_reexecutes_last_block(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """/run after an auto-executed block re-runs it (manual escape hatch)."""
+    from inclave_sandbox.api import ExecutionResult
+
+    streams = iter(
+        [
+            "```python\nprint('once')\n```",
+            "ran the code; got 'once'.",
+        ]
+    )
+
     def fake(model, messages):  # type: ignore[no-untyped-def]
-        yield "```python\nprint('boom')\n```"
+        yield from next(streams)
 
-    out, out_buf, err, _ = _consoles()
-    with patch("inclave_cli.chat._stream_chat", fake):
-        _run(out, err, monkeypatch, ["go", "/run", "n", "/exit"])
-    assert "not running" in out_buf.getvalue()
+    fake_exec = ExecutionResult(
+        stdout="once\n", stderr="", exit_code=0, timed_out=False, duration_ms=5
+    )
+
+    exec_calls: list[int] = []
+
+    def counting_exec(*args, **kwargs):  # type: ignore[no-untyped-def]
+        exec_calls.append(1)
+        return fake_exec
+
+    out, _, err, _ = _consoles()
+    with (
+        patch("inclave_cli.chat._stream_chat", fake),
+        patch("inclave_sandbox.execute_python", side_effect=counting_exec),
+    ):
+        _run(out, err, monkeypatch, ["go", "/run", "/exit"])
+    # Auto-run on first turn + manual /run → 2 sandbox calls.
+    assert len(exec_calls) == 2
 
 
 def test_drop_path_attaches(
