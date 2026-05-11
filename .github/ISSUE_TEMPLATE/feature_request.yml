@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a new feature or behavior
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check CONTRIBUTING.md — some categories (Linux/Windows port,
+        plugin systems, hosted features) are out of scope by default.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What are you trying to do that `inclave` doesn't let you do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Concrete idea, even if rough. UI sketch / CLI surface / behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Anything else you tried, including workarounds.
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: I've read CONTRIBUTING.md and this doesn't fall under the "out of scope" list.
+          required: true
+        - label: This doesn't require sending anything to a third party (it's a local-first project).
+          required: true

@@ -190,7 +190,7 @@ def help_text() -> str:
         "  [cyan]/file[/cyan] <path>         attach a local file (also: drop a path)\n"
         "  [cyan]/file[/cyan] @<id|name>     attach something already in the workspace\n"
         "  [cyan]/detach[/cyan] <id|name>    detach from this session\n"
-        "  [cyan]/run[/cyan]                 run the last python block in the sandbox\n"
+        "  [cyan]/run[/cyan]                 re-run the last python block (auto-runs by default)\n"
         "  [cyan]/setup[/cyan]               start ollama + pick a model (interactive)\n"
         "  [cyan]/save[/cyan] <name>         save this conversation by name\n"
         "  [cyan]/clear[/cyan]               wipe conversation (keeps files)\n"

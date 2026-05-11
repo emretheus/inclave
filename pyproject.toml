@@ -1,7 +1,7 @@
 [project]
 name = "inclave"
 version = "0.1.0"
-description = "Local-first, privacy-preserving CLI for macOS — chat with and analyze your files using a local LLM, with sandboxed code execution."
+description = "Local-first AI CLI for macOS. Chat with your PDFs, Excel, CSV, and code using a local LLM (Ollama). Model-generated Python runs in a Seatbelt sandbox with no network. Private, offline, no telemetry."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
@@ -9,9 +9,30 @@ authors = [
     { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
     { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
 ]
-maintainers = [{ name = "Caelusway", email = "53878581+caelusway@users.noreply.github.com" }]
+maintainers = [{ name = "InClave Authors", email = "ulgacemre@gmail.com" }]
 requires-python = ">=3.12"
-keywords = ["cli", "ollama", "sandbox", "privacy", "macos", "file-analysis", "local-llm"]
+keywords = [
+    "ai",
+    "ai-assistant",
+    "cli",
+    "code-execution",
+    "code-interpreter",
+    "file-analysis",
+    "llama",
+    "local-ai",
+    "local-first",
+    "local-llm",
+    "macos",
+    "offline",
+    "ollama",
+    "pdf",
+    "privacy",
+    "private-ai",
+    "repl",
+    "sandbox",
+    "seatbelt",
+    "self-hosted",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -33,9 +54,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/caelusway/inclave"
-Repository = "https://github.com/caelusway/inclave"
-Issues = "https://github.com/caelusway/inclave/issues"
+Homepage = "https://github.com/emretheus/inclave"
+Repository = "https://github.com/emretheus/inclave"
+Issues = "https://github.com/emretheus/inclave/issues"
 
 [tool.uv]
 package = false

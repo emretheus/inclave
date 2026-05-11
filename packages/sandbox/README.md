@@ -48,7 +48,7 @@ We do **not** try to prevent:
 
 The bundled Python runtime lives at `runtime/` (built per machine via
 `uv lock`). It contains a frozen set of libraries: pandas, numpy, openpyxl,
-pypdf, matplotlib. See .github/internal/PROJECT_PLAN.md §13 for the full list.
+pypdf, matplotlib. The exact list is in `runtime/pyproject.toml`.
 
 ## Known limitations
 

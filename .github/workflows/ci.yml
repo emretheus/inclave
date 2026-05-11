@@ -19,55 +19,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Bootstrap guard: until root pyproject.toml lands (M0), keep CI green so
-      # foundational PRs are not blocked. Once it exists, every step below runs.
-      - name: Detect project
-        id: detect
-        run: |
-          if [ -f pyproject.toml ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No root pyproject.toml yet — bootstrap phase. Skipping lint/test."
-          fi
-
       - name: Install uv
-        if: steps.detect.outputs.ready == 'true'
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
 
       - name: Install Python 3.12
-        if: steps.detect.outputs.ready == 'true'
         run: uv python install 3.12
 
       - name: Sync workspace
-        if: steps.detect.outputs.ready == 'true'
         run: uv sync --all-packages --all-extras
 
       - name: Lint (ruff)
-        if: steps.detect.outputs.ready == 'true'
         run: uv run ruff check .
 
       - name: Format check (ruff)
-        if: steps.detect.outputs.ready == 'true'
         run: uv run ruff format --check .
 
       - name: Type check (mypy)
-        if: steps.detect.outputs.ready == 'true'
         run: uv run mypy packages shared
 
-      # Coverage threshold ratchets up as packages mature.
-      # Per PROJECT_PLAN §7: ≥80% general, ≥90% for sandbox.
-      # Starts at 0 during M0; bump in PROJECT_PLAN PRs as code lands.
+      # Coverage gate. Bump as packages mature — PROJECT_PLAN §7 targets
+      # ≥80% general / ≥90% for sandbox.
       - name: Test (pytest + coverage)
-        if: steps.detect.outputs.ready == 'true'
         env:
-          COV_MIN: "0"
+          COV_MIN: "75"
         run: uv run pytest --cov --cov-report=term-missing --cov-fail-under="$COV_MIN"
 
       - name: Upload coverage report
-        if: steps.detect.outputs.ready == 'true' && always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
@@ -76,17 +56,40 @@ jobs:
             coverage.xml
           if-no-files-found: ignore
 
-  # Lightweight always-on check so PRs always have a status to gate on,
-  # even during bootstrap when the test job is a no-op.
+  # Privacy / hygiene checks. These have to be cheap, deterministic, and
+  # enforce the things the README promises: no secrets, no outbound HTTP
+  # to anything other than localhost.
   guard:
     name: Repo guard
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
+
       - name: No secrets in tracked files
         run: |
           if git grep -nE '(BEGIN (RSA|OPENSSH) PRIVATE KEY|sk-[A-Za-z0-9]{20,})' -- . ':!*.md' ':!.github/**'; then
             echo "::error::Possible secret committed."
             exit 1
           fi
+
+      - name: No non-localhost URLs in production code
+        # The README's privacy promise hinges on this: nothing in packages/
+        # or shared/ should reference a network host other than the local
+        # Ollama daemon. We grep for http(s) URLs and fail on any that
+        # isn't 127.0.0.1 / localhost. Tests are exempt (they mock).
+        run: |
+          set -e
+          hits=$(grep -rEho 'https?://[A-Za-z0-9._-]+(:[0-9]+)?' \
+                  packages shared \
+                  --include='*.py' \
+                  --exclude-dir=tests \
+                  --exclude-dir=__pycache__ \
+              | sort -u || true)
+          bad=$(echo "$hits" | grep -vE '^https?://(127\.0\.0\.1|localhost)(:[0-9]+)?$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Non-localhost URL referenced in production code:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "all URLs in production code point at localhost — ok"

@@ -45,7 +45,28 @@ from inclave_cli.inputline import make_session, read_input
 
 log = get_logger()
 
-CODE_BLOCK_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
+# Match fenced code blocks. We accept three flavors:
+#   1. ```python\n…\n```   — the canonical form (also: py, py3, python3)
+#   2. ```\n…\n```          — language-tagless fence (small models do this)
+#   3. <indented Python> — *not* matched here; only fenced code auto-runs.
+# The "imports + def/print on a top-level line" heuristic gives us a cheap
+# way to skip ```bash``` or other non-python fences while still catching
+# language-tagless python blocks.
+CODE_BLOCK_RE = re.compile(
+    r"```(?P<lang>[\w.+-]*)\s*\n(?P<body>.*?)```",
+    re.DOTALL,
+)
+_PY_HINT_RE = re.compile(
+    r"^\s*(?:import\s|from\s+\S+\s+import\s|def\s|class\s|print\s*\(|"
+    r"\w+\s*=\s|if\s+__name__\s*==)",
+    re.MULTILINE,
+)
+
+# Hard ceiling on auto-run iterations within a single user turn. The model
+# writes code → we run it → model comments. If the model writes more code in
+# the comment, we'd run that too, and so on. Three rounds is generous; in
+# practice the second is usually a plain-language summary.
+MAX_AUTORUN_TURNS = 3
 
 
 def _autosave(
@@ -88,21 +109,65 @@ def _stream_chat(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
 
 
 def _resolve_initial_files(refs: list[str] | None) -> list[FileEntry]:
-    if refs is None:
-        return list(list_files())
+    """Resolve --file refs to FileEntry objects.
+
+    None / empty → start with an empty session. The workspace can contain
+    leftover files from earlier sessions; attaching them all by default
+    would silently inject unwanted context into the next chat. Users who
+    want everything pass `--file all` or use `/files all` once inside.
+    """
     if not refs:
         return []
+    if refs == ["all"]:
+        return list(list_files())
     return [find_file(r) for r in refs]
 
 
+_PY_LANGS = {"", "python", "py", "py3", "python3"}
+
+
+def _python_blocks_in(content: str) -> list[str]:
+    """Return every python-ish fenced code block in `content`.
+
+    Accepts ``` (no language tag) and ```py / ```python (any case). Tagless
+    fences must also look like python (import / def / print / assignment)
+    so we don't accidentally execute a shell session paste.
+    """
+    out: list[str] = []
+    for m in CODE_BLOCK_RE.finditer(content):
+        lang = m.group("lang").lower()
+        body = m.group("body")
+        if lang not in _PY_LANGS:
+            continue
+        if not lang and not _PY_HINT_RE.search(body):
+            continue
+        out.append(body.strip())
+    return out
+
+
 def _last_python_block(messages: list[dict[str, str]]) -> str | None:
+    """Most recent python block across all assistant turns. Used by the
+    `/run` slash command, which is explicitly a "rerun the last code"
+    escape hatch and should reach back through history.
+    """
     for msg in reversed(messages):
         if msg["role"] != "assistant":
             continue
-        matches = CODE_BLOCK_RE.findall(msg["content"])
-        if matches:
-            return str(matches[-1]).strip()
+        blocks = _python_blocks_in(msg["content"])
+        if blocks:
+            return blocks[-1]
     return None
+
+
+def _python_block_in_latest_assistant(messages: list[dict[str, str]]) -> str | None:
+    """Python block from THIS turn's assistant reply only — does not walk
+    history. Used by the auto-run loop so a follow-up reply that contains
+    no code doesn't re-execute a stale block from an earlier turn.
+    """
+    if not messages or messages[-1]["role"] != "assistant":
+        return None
+    blocks = _python_blocks_in(messages[-1]["content"])
+    return blocks[-1] if blocks else None
 
 
 def _attach_paths(
@@ -133,7 +198,11 @@ def _execute_in_sandbox(
     cfg: InClaveConfig,
     console: Console,
     err_console: Console,
-) -> None:
+) -> object | None:
+    """Run code in the sandbox and render its output. Returns the
+    ExecutionResult so callers can feed stdout back to the model. Returns
+    None if the sandbox itself errored.
+    """
     from inclave_sandbox import SandboxPolicy, execute_python
 
     tmp = Path(tempfile.mkdtemp(prefix="inclave-run-"))
@@ -148,7 +217,7 @@ def _execute_in_sandbox(
             result = execute_python(code, policy)
         except InClaveError as e:
             ui.error(err_console, str(e))
-            return
+            return None
 
         ui.render_sandbox_output(
             console,
@@ -158,8 +227,43 @@ def _execute_in_sandbox(
             duration_ms=result.duration_ms,
             timed_out=result.timed_out,
         )
+        return result
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _format_sandbox_observation(result: object) -> str:
+    """Turn a sandbox ExecutionResult into a short text block to feed back
+    into the conversation as if the user said it. The model uses this to
+    write a human-language summary of what just ran.
+    """
+    # Access by attribute (duck-typed against ExecutionResult).
+    stdout = getattr(result, "stdout", "") or ""
+    stderr = getattr(result, "stderr", "") or ""
+    exit_code = getattr(result, "exit_code", 0)
+    timed_out = getattr(result, "timed_out", False)
+
+    # Cap to keep us well under context limits even on big tracebacks.
+    MAX = 4_000
+    if len(stdout) > MAX:
+        stdout = stdout[:MAX] + "\n[... output truncated ...]"
+    if len(stderr) > MAX:
+        stderr = stderr[:MAX] + "\n[... stderr truncated ...]"
+
+    pieces = ["[sandbox executed your last code block]"]
+    if timed_out:
+        pieces.append("status: TIMED OUT")
+    else:
+        pieces.append(f"status: exit {exit_code}")
+    if stdout.strip():
+        pieces.append(f"stdout:\n{stdout.rstrip()}")
+    if stderr.strip():
+        pieces.append(f"stderr:\n{stderr.rstrip()}")
+    pieces.append(
+        "Give the user a one- or two-sentence answer based on this output. "
+        "Do not produce another python block unless the user asks for one."
+    )
+    return "\n\n".join(pieces)
 
 
 def _make_reader(session_files: list[FileEntry], console: Console) -> Callable[[str], str]:
@@ -377,23 +481,77 @@ def run_chat(
             messages.pop()
             continue
 
-        if assistant_buf:
-            full = "".join(assistant_buf)
-            messages.append({"role": "assistant", "content": full})
-            ui.render_markdown(console, full)
-            console.print()
-            n_turns = sum(1 for m in messages if m["role"] == "assistant")
-            ui.status_hint(
-                console,
-                model=current_model[0],
-                n_files=len(session_files),
-                n_turns=n_turns,
-                workdir=str(Path.cwd()),
-            )
-            console.print()
-            _autosave(current_model[0], messages, session_files)
-        else:
+        if not assistant_buf:
             messages.pop()
+            continue
+
+        full = "".join(assistant_buf)
+        messages.append({"role": "assistant", "content": full})
+        ui.render_markdown(console, full)
+        console.print()
+
+        # Auto-run loop: only fires on python in *this turn's* assistant
+        # reply. The follow-up message (sandbox observation → model
+        # summary) ordinarily has no code, which ends the loop. Capped at
+        # MAX_AUTORUN_TURNS in case a confused model keeps emitting code.
+        for _ in range(MAX_AUTORUN_TURNS):
+            code = _python_block_in_latest_assistant(messages)
+            if not code:
+                break
+
+            attached_files, _w = attach(session_files)
+            result = _execute_in_sandbox(code, attached_files, cfg, console, err_console)
+            if result is None:
+                break  # sandbox itself errored; UI already showed it
+            console.print()
+
+            observation = _format_sandbox_observation(result)
+            messages.append({"role": "user", "content": observation})
+
+            spinner = ui.thinking(console)
+            spinner.start()
+            followup_buf: list[str] = []
+            try:
+                for piece in _stream_chat(current_model[0], messages):
+                    followup_buf.append(piece)
+                spinner.stop()
+            except KeyboardInterrupt:
+                spinner.stop()
+                console.print()
+                ui.info(console, "(stream cancelled)")
+                messages.pop()  # drop the observation; nothing to comment on
+                break
+            except OllamaUnavailableError as e:
+                spinner.stop()
+                console.print()
+                ui.error(err_console, str(e))
+                messages.pop()
+                break
+            except InClaveError as e:
+                spinner.stop()
+                console.print()
+                ui.error(err_console, str(e))
+                messages.pop()
+                break
+
+            if not followup_buf:
+                messages.pop()
+                break
+            followup = "".join(followup_buf)
+            messages.append({"role": "assistant", "content": followup})
+            ui.render_markdown(console, followup)
+            console.print()
+
+        n_turns = sum(1 for m in messages if m["role"] == "assistant")
+        ui.status_hint(
+            console,
+            model=current_model[0],
+            n_files=len(session_files),
+            n_turns=n_turns,
+            workdir=str(Path.cwd()),
+        )
+        console.print()
+        _autosave(current_model[0], messages, session_files)
 
 
 def _list_local_model_names() -> list[str]:
@@ -569,25 +727,14 @@ def _handle_slash(
         return False
 
     if cmd == "run":
+        # The last python block was already auto-run when the model produced
+        # it. /run is the manual escape hatch — it re-executes the same code,
+        # useful when the file workspace has changed since the last turn.
         code = _last_python_block(messages)
         if not code:
             ui.warn(err_console, "no python code block in the conversation yet")
             return False
         attached_files, _ = attach(session_files)
-        ui.render_code_proposal(console, code)
-        if not cfg.auto_run:
-            file_list = ", ".join(a.entry.name for a in attached_files) or "(no files)"
-            ui.info(console, f"workdir will contain: {file_list}")
-            try:
-                go = console.input(f"  [bold]run in sandbox?[/bold] [{ui.DIM}][y/N][/{ui.DIM}] ")
-                go = go.strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                console.print()
-                ui.info(console, "cancelled")
-                return False
-            if go not in ("y", "yes"):
-                ui.info(console, "not running")
-                return False
         _execute_in_sandbox(code, attached_files, cfg, console, err_console)
         return False
 

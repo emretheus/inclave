@@ -36,6 +36,5 @@ htmlcov/
 
 # Local sandbox runtime venv (built per machine; pyproject + lockfile committed)
 packages/sandbox/runtime/.venv/
-# Demo recording — generated artifacts only; tape and helpers are local-only
-demo.tape
+# Per-developer convenience Makefile (not part of the public build).
 Makefile

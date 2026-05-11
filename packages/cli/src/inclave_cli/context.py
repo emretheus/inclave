@@ -21,12 +21,16 @@ All data stays on the user's machine; you may never invent file contents.
 Rules:
 - Ground every answer in the attached file blocks below. If the data isn't
   there, say so plainly — don't guess.
-- When asked to compute, summarize, or extract, prefer writing a Python
-  script the user can run via /run. The sandbox provides:
+- When you need to compute, summarize, or extract, write a Python script.
+  Any ```python``` block you produce is executed AUTOMATICALLY in a
+  sandbox. You do not need to ask the user to run it. The sandbox provides:
     pandas, numpy, openpyxl, pypdf, matplotlib (Agg) + the Python stdlib.
   No network is available. The script's working directory contains copies
   of the attached files (same names as shown in the file blocks).
-- Be terse. Show numbers, tables, or a short code block — not paragraphs.
+- Print() the answer the user actually wants — that printed output is
+  what they see. After the script runs, you will be shown its stdout/stderr
+  and asked to give a short, plain-language summary grounded in that output.
+- Be terse. Numbers and tables over paragraphs.
 """
 
 
@@ -38,10 +42,17 @@ class AttachedFile:
 
 
 def select_files(refs: list[str] | None) -> list[FileEntry]:
-    """If refs given, resolve them; otherwise return everything in workspace."""
-    if refs:
-        return [find_file(r) for r in refs]
-    return list_files()
+    """Resolve --file refs for one-shot `ask`.
+
+    Empty / None → no files. Use `--file all` (or repeat `--file <name>` per
+    file) to opt in; previously this auto-attached every workspace file,
+    which leaked old context into unrelated questions.
+    """
+    if not refs:
+        return []
+    if refs == ["all"]:
+        return list_files()
+    return [find_file(r) for r in refs]
 
 
 def attach(entries: list[FileEntry]) -> tuple[list[AttachedFile], list[str]]:

@@ -1,6 +1,6 @@
 """InClave CLI entrypoint.
 
-Defines the `enclave` command and its subcommands per PROJECT_PLAN.md §6.
+Defines the `inclave` command and its subcommands.
 """
 
 from __future__ import annotations

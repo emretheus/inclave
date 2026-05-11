@@ -20,14 +20,13 @@ a clear "Run: cd ... && uv sync" error if it's missing.
 
 ## Adding a library
 
-Adding to the runtime is a deliberate, three-place change in one PR:
+Adding to the runtime is a deliberate, two-place change in one PR:
 
 1. Add the dep here in `pyproject.toml`, run `uv lock`, commit `uv.lock`.
-2. Update .github/internal/PROJECT_PLAN.md §13.1 (the bundled-libs table).
-3. Update the system prompt in `packages/cli/src/inclave_cli/prompts.py` so
-   the model knows the new import is available.
+2. Update the system prompt in `packages/cli/src/inclave_cli/context.py`
+   (`SYSTEM_PROMPT`) so the model knows the new import is available.
 
-Without all three, model-generated code that uses the new lib will silently
+Without both, model-generated code that uses the new lib will silently
 fail to import.
 
 ## Why pinned to Python <3.14?
