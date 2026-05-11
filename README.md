@@ -160,8 +160,23 @@ Global flags (work on every subcommand):
 `v0.1` — the core flow (workspace, file analysis, chat, sandbox `/run`,
 sessions) works end-to-end. APIs may still change.
 
-**macOS only by design**: the sandbox depends on Seatbelt (`sandbox-exec`).
-Linux support (via `bubblewrap`) is on the roadmap. Windows is out of scope.
+Today, InClave runs **on macOS only**. The sandbox depends on Seatbelt
+(`sandbox-exec`), which is macOS-specific.
+
+## Roadmap
+
+- [ ] **Linux support** via [`bubblewrap`](https://github.com/containers/bubblewrap).
+      Same policy (no network, single read/write directory, rlimits),
+      different backend behind the same `inclave_sandbox.api` contract.
+- [ ] **Windows support** via the WSL2 Linux backend, or — longer term —
+      a native sandbox using AppContainer / Job Objects. Tracking issue
+      welcome.
+- [ ] Image attachments (drag a PNG into the prompt, send to a
+      vision-capable local model).
+- [ ] Per-project sandbox profile overrides (allow specific paths /
+      domains for the rare workflow that legitimately needs them).
+- [ ] Better long-context handling for big PDFs (chunking + retrieval
+      across pages instead of the current 100 KB truncate).
 
 ## Manual install
 
