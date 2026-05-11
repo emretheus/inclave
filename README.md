@@ -53,30 +53,30 @@ pick a model from a curated list (`llama3.2`, `llama3.1:8b`,
 $ inclave
 ●  inclave  llama3.2  workspace: 0 files  workdir: ~/Downloads
 
-›  ~/Downloads/expenses.csv  total spend by category, as a bar chart
+›  ~/Downloads/mrr_2026.csv  what was MRR growth from Sep to Apr?
 
-  + expenses.csv  (added)
+  + mrr_2026.csv  (added)
 
   ```python
   import pandas as pd
-  df = pd.read_csv("expenses.csv")
-  df.groupby("category")["amount"].sum().plot.bar()
+  df = pd.read_csv("mrr_2026.csv")
+  start, end = df.iloc[0]["mrr_usd"], df.iloc[-1]["mrr_usd"]
+  print(f"start: ${start:,}  end: ${end:,}  growth: {(end/start - 1)*100:.1f}%")
   ```
 
-›  /run
-  ┌── proposed code ─────────────────────────────────────┐
-  │ 1  import pandas as pd                               │
-  │ 2  df = pd.read_csv("expenses.csv")                  │
-  │ 3  df.groupby("category")["amount"].sum().plot.bar() │
-  └──────────────────────────────────────────────────────┘
-  workdir will contain: expenses.csv
-  run in sandbox? [y/N] y
+  ╭─────────────── stdout ───────────────╮
+  │ start: $52,780  end: $103,480  growth: 96.1%
+  ╰──────────────────────────────────────╯
+  ran · exit 0 · 1.3s
 
-  ran · exit 0 · 1.4s
+  MRR nearly doubled — up 96 % over 8 months, from $52,780 in
+  September to $103,480 in April.
 ```
 
-The script ran in a temporary directory containing only your attached files,
-with no network access, then the sandbox was torn down.
+The python block ran **automatically** in a temporary sandbox directory
+that contained only your attached files. No network access, no escape
+to `~/.ssh`. The model then read the actual stdout and wrote the
+plain-language answer above.
 
 ## Why InClave?
 
@@ -93,9 +93,13 @@ It's an **offline AI code interpreter** that respects your filesystem.
 
 ## Inside the chat
 
+- **Python blocks the model writes run automatically** in the sandbox. The
+  stdout is shown to you and fed back to the model so the next reply is
+  grounded in what actually ran — not what the model guessed.
 - **Drop a path** from Finder, with or without a question on the same line.
 - **`/help`** — list every slash command.
-- **`/run`** — execute the last Python block the model wrote (asks `y/N`).
+- **`/run`** — manually re-execute the last python block (escape hatch
+  for when files in the workspace changed).
 - **`/setup`** — re-run the interactive setup (start Ollama, pick a model).
 - **`/model <name>`** — switch model mid-chat.
 - **`/save <name>`** — name and save the current conversation.
@@ -141,9 +145,8 @@ Settings live in `~/.inclave/config.json`:
 | Key                    | Default     | Purpose                                            |
 |------------------------|-------------|----------------------------------------------------|
 | `default_model`        | `null`      | Model used when `--model` isn't passed             |
-| `sandbox_cpu_seconds`  | `30`        | CPU time limit per `/run`                          |
-| `sandbox_memory_mb`    | `512`       | Memory limit per `/run`                            |
-| `auto_run`             | `false`     | Skip the `y/N` prompt before `/run`                |
+| `sandbox_cpu_seconds`  | `30`        | CPU time limit per sandbox run                     |
+| `sandbox_memory_mb`    | `512`       | Memory limit per sandbox run                       |
 
 Edit with `inclave config set <key> <value>` or by hand.
 
