@@ -4,7 +4,7 @@
 > Locally, on macOS, with a local LLM and a sandbox for code execution.
 > No cloud. No telemetry. Nothing leaves your machine.
 
-[![CI](https://github.com/caelusway/inclave/actions/workflows/ci.yml/badge.svg)](https://github.com/caelusway/inclave/actions/workflows/ci.yml)
+[![CI](https://github.com/emretheus/inclave/actions/workflows/ci.yml/badge.svg)](https://github.com/emretheus/inclave/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)]()
@@ -30,7 +30,7 @@ model. It pairs three things:
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/caelusway/inclave/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/emretheus/inclave/master/install.sh | sh
 ```
 
 Or manually with [`uv`](https://docs.astral.sh/uv/):
@@ -40,7 +40,7 @@ brew install ollama
 ollama serve &
 ollama pull llama3.2
 
-git clone https://github.com/caelusway/inclave.git
+git clone https://github.com/emretheus/inclave.git
 cd inclave
 uv tool install --from packages/cli inclave-cli
 ```
@@ -176,7 +176,7 @@ Two global flags work on every subcommand:
 ## Development
 
 ```bash
-git clone https://github.com/caelusway/inclave.git
+git clone https://github.com/emretheus/inclave.git
 cd inclave
 uv sync --all-packages --all-extras
 
@@ -206,7 +206,7 @@ Built by:
 - **Emre Kocyigit**
 - **Ibrahim Furkan Gulcan** 
 
-See the [contributors page](https://github.com/caelusway/inclave/graphs/contributors)
+See the [contributors page](https://github.com/emretheus/inclave/graphs/contributors)
 for everyone who has contributed.
 
 ## Contributing

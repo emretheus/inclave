@@ -2,7 +2,7 @@
 #
 # InClave installer
 #
-#   curl -fsSL https://raw.githubusercontent.com/caelusway/inclave/master/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/emretheus/inclave/master/install.sh | sh
 #
 # What this does:
 #   1. Refuses to run on anything other than macOS (sandbox is macOS-only).
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/caelusway/inclave.git"
+REPO_URL="https://github.com/emretheus/inclave.git"
 SRC_DIR="${HOME}/.cache/inclave-src"
 BRANCH="${ENCLAVE_BRANCH:-master}"
 
@@ -106,4 +106,4 @@ printf "    %sinclave init%s\n" "$BOLD" "$RESET"
 printf "    %sinclave models use llama3.2%s   %s(or another local model)%s\n" "$BOLD" "$RESET" "$DIM" "$RESET"
 printf "    %sinclave chat%s\n" "$BOLD" "$RESET"
 echo
-printf "%sDocs:%s https://github.com/caelusway/inclave\n" "$DIM" "$RESET"
+printf "%sDocs:%s https://github.com/emretheus/inclave\n" "$DIM" "$RESET"

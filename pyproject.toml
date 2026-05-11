@@ -9,7 +9,7 @@ authors = [
     { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
     { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
 ]
-maintainers = [{ name = "Caelusway", email = "53878581+caelusway@users.noreply.github.com" }]
+maintainers = [{ name = "InClave Authors", email = "ulgacemre@gmail.com" }]
 requires-python = ">=3.12"
 keywords = ["cli", "ollama", "sandbox", "privacy", "macos", "file-analysis", "local-llm"]
 classifiers = [
@@ -33,9 +33,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/caelusway/inclave"
-Repository = "https://github.com/caelusway/inclave"
-Issues = "https://github.com/caelusway/inclave/issues"
+Homepage = "https://github.com/emretheus/inclave"
+Repository = "https://github.com/emretheus/inclave"
+Issues = "https://github.com/emretheus/inclave/issues"
 
 [tool.uv]
 package = false
