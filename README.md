@@ -10,7 +10,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)]()
 
-![demo](demo.gif)
+![demo](demo-data/demo.gif)
 
 ---
 
@@ -51,7 +51,7 @@ pick a model from a curated list (`llama3.2`, `llama3.1:8b`,
 
 ```
 $ inclave
-●  inclave  llama3.2  workspace: 0 files  workdir: ~/Downloads
+●  inclave  qwen2.5-coder:7b  workspace: 0 files  workdir: ~/Downloads
 
 ›  ~/Downloads/mrr_2026.csv  print total mrr_usd growth in % from the first to the last row
 

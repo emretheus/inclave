@@ -14,7 +14,7 @@ side-channel data setup step.
 brew install vhs
 uv tool install --force --from packages/cli inclave-cli
 ollama serve &
-ollama pull llama3.2
+ollama pull qwen2.5-coder:7b  # ~4.4 GB; the recording sets this as default
 
 # Copy the demo data into the workdir the tape expects:
 mkdir -p ~/.inclave-demo
@@ -23,5 +23,5 @@ cp demo-data/*.csv demo-data/*.pdf ~/.inclave-demo/
 # Optional: wipe leftover workspace state for a clean run.
 rm -rf ~/.inclave/workspaces ~/.inclave/sessions
 
-vhs demo.tape       # writes demo.gif at the repo root
+vhs demo-data/demo.tape   # writes demo-data/demo.gif
 ```
