@@ -206,11 +206,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Short version:
 - Tests are required on every PR. CI gates lint, format, type-check,
   coverage, and the no-outbound-HTTP guard.
 
-## Security
-
-Found a sandbox escape or privacy leak? See [SECURITY.md](SECURITY.md) —
-don't open a public issue.
-
 ## Authors
 
 Built by:

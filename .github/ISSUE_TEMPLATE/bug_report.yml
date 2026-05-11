@@ -1,0 +1,61 @@
+name: Bug report
+description: Something inclave does wrong or unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug as you saw it.
+      placeholder: e.g. "`inclave chat --resume` shows no banner after EOF"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. inclave files add ~/x.csv
+        2. inclave chat
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: inclave version / commit
+      description: Output of `git rev-parse HEAD` if you built from source, or the version printed by `inclave --help`.
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: macOS version
+      placeholder: "14.5 (Sonoma)"
+    validations:
+      required: true
+
+  - type: input
+    id: ollama
+    attributes:
+      label: Ollama version
+      placeholder: "ollama version 0.4.0"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: |
+        Re-run with `--debug` and paste relevant lines from `~/.inclave/log/inclave.log`.
+        **No message content is logged**, but redact anything you'd rather not share.
+      render: shell
