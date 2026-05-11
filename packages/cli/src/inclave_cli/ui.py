@@ -25,16 +25,28 @@ DOT_PEND = "[yellow]●[/yellow]"
 
 
 def banner(console: Console, model: str, n_files: int, workdir: str) -> None:
+    if model:
+        dot = DOT_OK
+        model_str = f"[{DIM}]{model}[/{DIM}]"
+    else:
+        dot = DOT_PEND
+        model_str = "[yellow]no model[/yellow]"
     pieces = [
-        f"{DOT_OK} [bold]inclave[/bold]",
-        f"[{DIM}]{model}[/{DIM}]",
+        f"{dot} [bold]inclave[/bold]",
+        model_str,
         f"[{DIM}]workspace: {n_files} file{'s' if n_files != 1 else ''}[/{DIM}]",
         f"[{DIM}]workdir: {workdir}[/{DIM}]",
     ]
     console.print("  ".join(pieces))
-    console.print(
-        f"[{DIM}]/help for commands · drop a file path to attach · Ctrl+D to exit[/{DIM}]"
-    )
+    if not model:
+        console.print(
+            f"[{DIM}]type [bold]/setup[/bold] to install a model, "
+            f"or [bold]/help[/bold] for commands[/{DIM}]"
+        )
+    else:
+        console.print(
+            f"[{DIM}]/help for commands · drop a file path to attach · Ctrl+D to exit[/{DIM}]"
+        )
     console.print()
 
 
@@ -179,8 +191,12 @@ def help_text() -> str:
         "  [cyan]/file[/cyan] @<id|name>     attach something already in the workspace\n"
         "  [cyan]/detach[/cyan] <id|name>    detach from this session\n"
         "  [cyan]/run[/cyan]                 run the last python block in the sandbox\n"
+        "  [cyan]/setup[/cyan]               start ollama + pick a model (interactive)\n"
+        "  [cyan]/save[/cyan] <name>         save this conversation by name\n"
         "  [cyan]/clear[/cyan]               wipe conversation (keeps files)\n"
         "  [cyan]/reset[/cyan]               wipe conversation AND files\n"
+        "  [cyan]/model[/cyan]               show current model and available models\n"
+        "  [cyan]/model[/cyan] <name>        switch model mid-session\n"
         "  [cyan]/exit[/cyan]                quit (also: bare `exit`, `quit`, or Ctrl+D)\n"
         "\n"
         "[bold]drag & drop[/bold]\n"

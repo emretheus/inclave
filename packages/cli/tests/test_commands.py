@@ -95,19 +95,30 @@ def test_models_list_ollama_unavailable(fake_home: Path) -> None:
     assert "Ollama is not running" in result.output
 
 
-def test_ask_without_model_fails(fake_home: Path) -> None:
-    result = runner.invoke(app, ["ask", "hello"])
-    assert result.exit_code == 1
-    assert "no model selected" in result.output
+def test_ask_without_model_non_tty_fails_cleanly(fake_home: Path) -> None:
+    """Non-TTY callers can't be prompted; we error out with a clear message."""
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_ollama.api.list_models", return_value=[]),
+    ):
+        result = runner.invoke(app, ["ask", "hello"])
+    assert result.exit_code != 0
+    assert "ollama pull" in result.output or "no default model" in result.output
 
 
 def test_ask_calls_generate(fake_home: Path) -> None:
-    runner.invoke(app, ["models", "use", "llama3.2"])
-    with patch("inclave_ollama.api.generate", return_value="hi there") as gen:
+    # Set default without going through `models use` (which now validates
+    # against installed models — would canonicalize llama3.2 → llama3.2:latest).
+    from inclave_core import set_config_value
+
+    set_config_value("default_model", "llama3.2")
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_ollama.api.generate", return_value="hi there") as gen,
+    ):
         result = runner.invoke(app, ["ask", "hello"])
     assert result.exit_code == 0
     assert "hi there" in result.output
-    # workspace empty → prompt is just the question; system prompt is attached
     gen.assert_called_once()
     args, kwargs = gen.call_args
     assert args == ("hello",)
@@ -136,6 +147,57 @@ def test_run_executes(fake_home: Path, tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "hi" in result.output
     assert "exit 0" in result.output
+
+
+def test_debug_flag_installs_log_handler(fake_home: Path) -> None:
+    """`--debug` writes operational logs to ~/.inclave/log/inclave.log."""
+    import logging
+
+    result = runner.invoke(app, ["--debug", "init"])
+    assert result.exit_code == 0
+
+    logger = logging.getLogger("inclave")
+    handlers = [h for h in logger.handlers if getattr(h, "_inclave_tag", None) == "inclave-file"]
+    assert len(handlers) == 1
+    for h in handlers:
+        h.flush()
+
+    log_path = fake_home / ".inclave" / "log" / "inclave.log"
+    assert log_path.exists(), "debug mode must create the log file"
+    contents = log_path.read_text(encoding="utf-8")
+    assert "inclave invoked" in contents
+    # Privacy contract: no message content ever ends up here.
+    assert "user" not in contents.lower() or "user_input" not in contents
+
+
+def test_no_color_flag_sets_env(fake_home: Path) -> None:
+    """`--no-color` sets NO_COLOR so nested consoles inherit it."""
+    import os
+
+    os.environ.pop("NO_COLOR", None)
+    try:
+        result = runner.invoke(app, ["--no-color", "config", "show"])
+        assert result.exit_code == 0
+        assert os.environ.get("NO_COLOR") == "1"
+    finally:
+        os.environ.pop("NO_COLOR", None)
+
+
+def test_sessions_list_empty(fake_home: Path) -> None:
+    result = runner.invoke(app, ["sessions", "list"])
+    assert result.exit_code == 0
+    assert "no sessions" in result.output
+
+
+def test_sessions_list_renders(fake_home: Path) -> None:
+    from inclave_core import Session, save_session
+
+    save_session(Session(model="m1", messages=[{"role": "user", "content": "hi"}]))
+    save_session(Session(model="m1", messages=[{"role": "user", "content": "x"}]), name="myproject")
+    result = runner.invoke(app, ["sessions", "list"])
+    assert result.exit_code == 0
+    assert "myproject" in result.output
+    assert "last" in result.output
 
 
 def test_run_propagates_sandbox_failure(fake_home: Path, tmp_path: Path) -> None:

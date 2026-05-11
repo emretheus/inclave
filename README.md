@@ -75,6 +75,9 @@ Inside `chat`:
 - Type **`/run`** after the model writes a Python block — the code executes in
   the sandbox with your attached files mounted in. Output streams back into the
   conversation.
+- Sessions autosave after every reply. Resume the last one with
+  `inclave chat --resume`, or `/save <name>` mid-chat and list everything with
+  `inclave sessions list`.
 
 ## Usage examples
 
@@ -163,6 +166,12 @@ Settings live in `~/.inclave/config.json`:
 | `auto_run`             | `false`     | Skip the `y/N` prompt before `/run`                |
 
 Edit with `inclave config set <key> <value>` or by hand.
+
+Two global flags work on every subcommand:
+
+- `--debug` — write operational logs (no message content) to
+  `~/.inclave/log/inclave.log` (rotated at 10 MB × 3). Off by default.
+- `--no-color` — disable ANSI colors. `NO_COLOR=1` env var works too.
 
 ## Development
 

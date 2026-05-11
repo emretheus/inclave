@@ -127,7 +127,9 @@ def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
 
     src = tmp_path / "secret.txt"
     src.write_text("the secret is 42")
-    runner.invoke(app, ["models", "use", "m1"])
+    from inclave_core import set_config_value
+
+    set_config_value("default_model", "m1")
     runner.invoke(app, ["files", "add", str(src)])
 
     captured: dict[str, object] = {}
@@ -137,7 +139,10 @@ def test_ask_attaches_workspace(fake_home: Path, tmp_path: Path) -> None:
         captured["system"] = system
         return "ok"
 
-    with patch("inclave_ollama.api.generate", side_effect=fake_generate):
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_ollama.api.generate", side_effect=fake_generate),
+    ):
         r = runner.invoke(app, ["ask", "what is the secret?"])
     assert r.exit_code == 0
     assert "the secret is 42" in captured["prompt"]  # type: ignore[operator]
@@ -149,7 +154,9 @@ def test_ask_no_files_flag(fake_home: Path, tmp_path: Path) -> None:
 
     src = tmp_path / "x.txt"
     src.write_text("DO NOT INCLUDE")
-    runner.invoke(app, ["models", "use", "m1"])
+    from inclave_core import set_config_value
+
+    set_config_value("default_model", "m1")
     runner.invoke(app, ["files", "add", str(src)])
 
     captured: dict[str, object] = {}
@@ -158,7 +165,10 @@ def test_ask_no_files_flag(fake_home: Path, tmp_path: Path) -> None:
         captured["prompt"] = prompt
         return "ok"
 
-    with patch("inclave_ollama.api.generate", side_effect=fake_generate):
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_ollama.api.generate", side_effect=fake_generate),
+    ):
         r = runner.invoke(app, ["ask", "hi", "--no-files"])
     assert r.exit_code == 0
     assert "DO NOT INCLUDE" not in captured["prompt"]  # type: ignore[operator]

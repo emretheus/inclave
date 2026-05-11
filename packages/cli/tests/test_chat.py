@@ -129,7 +129,10 @@ def test_double_ctrl_c_exits(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -
     assert "press Ctrl+C again" in out_buf.getvalue()
 
 
-def test_ollama_unavailable_propagates(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ollama_unavailable_keeps_repl_open(
+    fake_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ollama dying mid-chat shows inline error + setup hint, doesn't crash."""
     out, _, err, err_buf = _consoles()
 
     def boom(model, messages):  # type: ignore[no-untyped-def]
@@ -137,25 +140,43 @@ def test_ollama_unavailable_propagates(fake_home: Path, monkeypatch: pytest.Monk
         yield  # pragma: no cover
 
     with patch("inclave_cli.chat._stream_chat", boom):
-        rc = _run(out, err, monkeypatch, ["hi"])
-    assert rc == 3
+        rc = _run(out, err, monkeypatch, ["hi", "/exit"])
+    assert rc == 0
     assert "Ollama is not running" in err_buf.getvalue()
+    assert "/setup" in err_buf.getvalue()
 
 
-def test_no_model_raises() -> None:
-    from inclave_core import CLIError
+def test_no_model_opens_repl_with_warning(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """REPL opens even without a model; banner shows 'no model' and a hint."""
+    out, out_buf, err, _ = _consoles()
+    it = iter(["/exit"])
+    monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+    rc = run_chat(out, err, model="", file_refs=[])
+    assert rc == 0
+    output = out_buf.getvalue()
+    assert "no model" in output
+    assert "/setup" in output
 
-    out, _, err, _ = _consoles()
-    with pytest.raises(CLIError):
-        run_chat(out, err, model="", file_refs=[])
+
+def test_no_model_user_message_warns_inline(
+    fake_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sending a message with no model shows an inline hint, doesn't crash."""
+    out, _, err, err_buf = _consoles()
+    it = iter(["hello", "/exit"])
+    monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+    rc = run_chat(out, err, model="", file_refs=[])
+    assert rc == 0
+    assert "no model set yet" in err_buf.getvalue()
 
 
 def test_chat_command_invokes_repl(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from inclave_cli.main import app
+    from inclave_core import set_config_value
     from typer.testing import CliRunner
 
     runner = CliRunner()
-    runner.invoke(app, ["models", "use", "llama3.2"])
+    set_config_value("default_model", "llama3.2")
 
     called: dict[str, object] = {}
 
@@ -170,14 +191,19 @@ def test_chat_command_invokes_repl(fake_home: Path, monkeypatch: pytest.MonkeyPa
     assert called["model"] == "llama3.2"
 
 
-def test_chat_no_model(fake_home: Path) -> None:
+def test_chat_no_model_still_opens_repl(fake_home: Path) -> None:
+    """Even without a configured model, `inclave chat` opens the REPL and
+    shows a friendly banner. The user can /setup or /exit from inside.
+    """
     from inclave_cli.main import app
     from typer.testing import CliRunner
 
     runner = CliRunner()
+    # Non-TTY CliRunner: prompt_toolkit's input() raises EOFError → clean exit.
     result = runner.invoke(app, ["chat"])
-    assert result.exit_code == 1
-    assert "no model selected" in result.output
+    assert result.exit_code == 0
+    assert "no model" in result.output
+    assert "/setup" in result.output
 
 
 def test_file_attach_via_slash(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -301,6 +327,120 @@ def test_model_switch_unknown_model(fake_home: Path, monkeypatch: pytest.MonkeyP
     with patch("inclave_cli.chat._list_local_model_names", return_value=["m1"]):
         _run(out, err, monkeypatch, ["/model nope", "/exit"])
     assert "model not installed" in err_buf.getvalue()
+
+
+def test_slash_setup_invokes_onboarding(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """/setup runs the onboarding flow and sets the model on success."""
+    from inclave_ollama.api import ModelInfo
+
+    out, out_buf, err, _ = _consoles()
+    fake_models = [ModelInfo("llama3.2", 0, "", "", False)]
+    with (
+        patch("inclave_cli.onboarding._ollama_up", return_value=True),
+        patch("inclave_cli.onboarding._is_tty", return_value=True),
+        patch("inclave_ollama.api.list_models", return_value=fake_models),
+    ):
+        # Two inputs: /setup, then user picks "1" inside the picker, then /exit
+        it = iter(["/setup", "1", "/exit"])
+        monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+        rc = run_chat(out, err, model="", file_refs=[])
+    assert rc == 0
+    output = out_buf.getvalue()
+    assert "ready · model: llama3.2" in output
+
+
+def test_autosave_after_assistant_turn(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every assistant turn writes ~/.inclave/sessions/last.json."""
+    from inclave_core import LAST, load_session
+
+    out, _, err, _ = _consoles()
+    with patch("inclave_cli.chat._stream_chat", _fake_stream("ok")):
+        _run(out, err, monkeypatch, ["hi", "/exit"])
+
+    saved = load_session(LAST)
+    assert saved is not None
+    assert saved.model == "m1"
+    # System + user + assistant
+    roles = [m["role"] for m in saved.messages]
+    assert roles == ["system", "user", "assistant"]
+
+
+def test_resume_reloads_previous_session(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """run_chat(resume=True) restores prior messages."""
+    from inclave_cli.chat import run_chat
+    from inclave_core import Session, save_session
+
+    prior = Session(
+        model="m1",
+        workdir=str(fake_home),
+        file_ids=[],
+        messages=[
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "before"},
+            {"role": "assistant", "content": "earlier reply"},
+        ],
+    )
+    save_session(prior)
+
+    captured: list[list[dict[str, str]]] = []
+
+    def fake(model, messages):  # type: ignore[no-untyped-def]
+        captured.append([dict(m) for m in messages])
+        yield "fresh"
+
+    out, out_buf, err, _ = _consoles()
+    it = iter(["next question", "/exit"])
+    monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+    with patch("inclave_cli.chat._stream_chat", fake):
+        rc = run_chat(out, err, model="m1", file_refs=[], resume=True)
+    assert rc == 0
+    # The new turn must see the prior assistant message in its history.
+    assert any(m["content"] == "earlier reply" for m in captured[0])
+    assert "resumed:" in out_buf.getvalue()
+
+
+def test_resume_with_no_saved_session(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from inclave_cli.chat import run_chat
+
+    out, out_buf, err, _ = _consoles()
+    it = iter(["/exit"])
+    monkeypatch.setattr("inclave_cli.chat.Console.input", lambda self, prompt="": next(it))
+    rc = run_chat(out, err, model="m1", file_refs=[], resume=True)
+    assert rc == 0
+    assert "no saved session" in out_buf.getvalue()
+
+
+def test_save_named_session(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`/save myname` writes ~/.inclave/sessions/myname.json after a real turn."""
+    from inclave_core import load_session
+
+    out, out_buf, err, _ = _consoles()
+    with patch("inclave_cli.chat._stream_chat", _fake_stream("hello")):
+        _run(out, err, monkeypatch, ["hi", "/save myname", "/exit"])
+    assert "saved as myname" in out_buf.getvalue()
+    s = load_session("myname")
+    assert s is not None
+    assert any(m["content"] == "hi" for m in s.messages)
+
+
+def test_save_with_no_turns_warns(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out, _, err, err_buf = _consoles()
+    _run(out, err, monkeypatch, ["/save foo", "/exit"])
+    assert "nothing to save yet" in err_buf.getvalue()
+
+
+def test_save_without_name_warns(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out, _, err, err_buf = _consoles()
+    with patch("inclave_cli.chat._stream_chat", _fake_stream("ok")):
+        _run(out, err, monkeypatch, ["hi", "/save", "/exit"])
+    assert "usage: /save" in err_buf.getvalue()
+
+
+def test_save_rejects_bad_name(fake_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out, _, err, err_buf = _consoles()
+    with patch("inclave_cli.chat._stream_chat", _fake_stream("ok")):
+        _run(out, err, monkeypatch, ["hi", "/save bad/name", "/exit"])
+    assert "invalid session name" in err_buf.getvalue()
 
 
 def test_drop_path_plus_question_in_one_line(
