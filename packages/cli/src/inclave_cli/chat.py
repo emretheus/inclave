@@ -45,7 +45,22 @@ from inclave_cli.inputline import make_session, read_input
 
 log = get_logger()
 
-CODE_BLOCK_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
+# Match fenced code blocks. We accept three flavors:
+#   1. ```python\n…\n```   — the canonical form (also: py, py3, python3)
+#   2. ```\n…\n```          — language-tagless fence (small models do this)
+#   3. <indented Python> — *not* matched here; only fenced code auto-runs.
+# The "imports + def/print on a top-level line" heuristic gives us a cheap
+# way to skip ```bash``` or other non-python fences while still catching
+# language-tagless python blocks.
+CODE_BLOCK_RE = re.compile(
+    r"```(?P<lang>[\w.+-]*)\s*\n(?P<body>.*?)```",
+    re.DOTALL,
+)
+_PY_HINT_RE = re.compile(
+    r"^\s*(?:import\s|from\s+\S+\s+import\s|def\s|class\s|print\s*\(|"
+    r"\w+\s*=\s|if\s+__name__\s*==)",
+    re.MULTILINE,
+)
 
 # Hard ceiling on auto-run iterations within a single user turn. The model
 # writes code → we run it → model comments. If the model writes more code in
@@ -108,14 +123,51 @@ def _resolve_initial_files(refs: list[str] | None) -> list[FileEntry]:
     return [find_file(r) for r in refs]
 
 
+_PY_LANGS = {"", "python", "py", "py3", "python3"}
+
+
+def _python_blocks_in(content: str) -> list[str]:
+    """Return every python-ish fenced code block in `content`.
+
+    Accepts ``` (no language tag) and ```py / ```python (any case). Tagless
+    fences must also look like python (import / def / print / assignment)
+    so we don't accidentally execute a shell session paste.
+    """
+    out: list[str] = []
+    for m in CODE_BLOCK_RE.finditer(content):
+        lang = m.group("lang").lower()
+        body = m.group("body")
+        if lang not in _PY_LANGS:
+            continue
+        if not lang and not _PY_HINT_RE.search(body):
+            continue
+        out.append(body.strip())
+    return out
+
+
 def _last_python_block(messages: list[dict[str, str]]) -> str | None:
+    """Most recent python block across all assistant turns. Used by the
+    `/run` slash command, which is explicitly a "rerun the last code"
+    escape hatch and should reach back through history.
+    """
     for msg in reversed(messages):
         if msg["role"] != "assistant":
             continue
-        matches = CODE_BLOCK_RE.findall(msg["content"])
-        if matches:
-            return str(matches[-1]).strip()
+        blocks = _python_blocks_in(msg["content"])
+        if blocks:
+            return blocks[-1]
     return None
+
+
+def _python_block_in_latest_assistant(messages: list[dict[str, str]]) -> str | None:
+    """Python block from THIS turn's assistant reply only — does not walk
+    history. Used by the auto-run loop so a follow-up reply that contains
+    no code doesn't re-execute a stale block from an earlier turn.
+    """
+    if not messages or messages[-1]["role"] != "assistant":
+        return None
+    blocks = _python_blocks_in(messages[-1]["content"])
+    return blocks[-1] if blocks else None
 
 
 def _attach_paths(
@@ -438,17 +490,13 @@ def run_chat(
         ui.render_markdown(console, full)
         console.print()
 
-        # Auto-run loop: if the assistant produced a python block, execute
-        # it in the sandbox, feed the output back as a synthetic user
-        # message, and let the model write a plain-language summary.
-        # Capped so a confused model can't run in circles forever.
+        # Auto-run loop: only fires on python in *this turn's* assistant
+        # reply. The follow-up message (sandbox observation → model
+        # summary) ordinarily has no code, which ends the loop. Capped at
+        # MAX_AUTORUN_TURNS in case a confused model keeps emitting code.
         for _ in range(MAX_AUTORUN_TURNS):
-            code = _last_python_block(messages)
-            already_ran = any(
-                m["role"] == "user" and m["content"].startswith("[sandbox executed")
-                for m in messages[-2:]
-            )
-            if not code or already_ran:
+            code = _python_block_in_latest_assistant(messages)
+            if not code:
                 break
 
             attached_files, _w = attach(session_files)
