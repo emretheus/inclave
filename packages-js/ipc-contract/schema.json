@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "errorCodes": {
+    "PARSE_ERROR": -32700,
+    "INVALID_REQUEST": -32600,
+    "METHOD_NOT_FOUND": -32601,
+    "INVALID_PARAMS": -32602,
+    "INTERNAL_ERROR": -32603
+  },
+  "domainErrorCodes": [
+    "ollama_unavailable",
+    "ollama_error",
+    "sandbox_error",
+    "config_error",
+    "not_found",
+    "error"
+  ],
+  "methods": [
+    {
+      "name": "system.status",
+      "params": {},
+      "returns": "object",
+      "streams": false,
+      "description": "Ollama running? default model? RAM? sandbox available?"
+    },
+    {
+      "name": "config.get",
+      "params": {},
+      "returns": "object",
+      "streams": false,
+      "description": "Return the full InClaveConfig."
+    },
+    {
+      "name": "config.set",
+      "params": {
+        "key": "string",
+        "value": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Set one config key, persist, return the new config."
+    },
+    {
+      "name": "models.list",
+      "params": {},
+      "returns": "object[]",
+      "streams": false,
+      "description": "List locally installed Ollama models (+ VRAM compatibility)."
+    },
+    {
+      "name": "models.pull",
+      "params": {
+        "name": "string"
+      },
+      "returns": "stream",
+      "streams": true,
+      "description": "Pull a model; emits models.pull_progress notifications."
+    },
+    {
+      "name": "models.remove",
+      "params": {
+        "name": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Delete a local model."
+    },
+    {
+      "name": "models.set_default",
+      "params": {
+        "name": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Set the default model in config."
+    },
+    {
+      "name": "files.add",
+      "params": {
+        "paths": "string[]"
+      },
+      "returns": "object[]",
+      "streams": false,
+      "description": "Copy files into the workspace; return their FileEntry records."
+    },
+    {
+      "name": "files.list",
+      "params": {},
+      "returns": "object[]",
+      "streams": false,
+      "description": "List workspace files."
+    },
+    {
+      "name": "files.remove",
+      "params": {
+        "ref": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Remove a workspace file by id or name."
+    },
+    {
+      "name": "files.clear",
+      "params": {},
+      "returns": "object",
+      "streams": false,
+      "description": "Remove every workspace file; returns count removed."
+    },
+    {
+      "name": "sessions.list",
+      "params": {},
+      "returns": "object[]",
+      "streams": false,
+      "description": "List saved sessions (name, saved_at, model, n_turns)."
+    },
+    {
+      "name": "sessions.load",
+      "params": {
+        "name": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Load a session by name."
+    },
+    {
+      "name": "sessions.save",
+      "params": {
+        "name": "string",
+        "session": "object"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Save a session under a name."
+    },
+    {
+      "name": "sessions.delete",
+      "params": {
+        "name": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Delete a saved session."
+    },
+    {
+      "name": "chat.send",
+      "params": {
+        "session_id": "string",
+        "text": "string",
+        "file_ids": "string[]"
+      },
+      "returns": "stream",
+      "streams": true,
+      "description": "Run a full chat turn (stream + auto-run loop). Emits chat.* events."
+    },
+    {
+      "name": "chat.run_last",
+      "params": {
+        "session_id": "string"
+      },
+      "returns": "stream",
+      "streams": true,
+      "description": "Re-run the most recent python block (the /run escape hatch)."
+    },
+    {
+      "name": "chat.cancel",
+      "params": {
+        "session_id": "string"
+      },
+      "returns": "object",
+      "streams": false,
+      "description": "Request cancellation of an in-flight turn."
+    },
+    {
+      "name": "ollama.ensure_running",
+      "params": {},
+      "returns": "object",
+      "streams": false,
+      "description": "Best-effort: confirm/launch the local Ollama daemon."
+    }
+  ],
+  "events": [
+    {
+      "name": "chat.token",
+      "payload": {
+        "session_id": "string",
+        "delta": "string"
+      },
+      "description": "A streamed chunk of the assistant reply."
+    },
+    {
+      "name": "chat.message_done",
+      "payload": {
+        "session_id": "string",
+        "role": "string",
+        "content": "string"
+      },
+      "description": "A full assistant message was committed."
+    },
+    {
+      "name": "chat.run_start",
+      "payload": {
+        "session_id": "string",
+        "code": "string"
+      },
+      "description": "A python block is about to run in the sandbox."
+    },
+    {
+      "name": "chat.run_output",
+      "payload": {
+        "session_id": "string",
+        "stdout": "string",
+        "stderr": "string",
+        "exit_code": "int",
+        "duration_ms": "int",
+        "timed_out": "bool"
+      },
+      "description": "The sandbox finished running a block."
+    },
+    {
+      "name": "chat.turn_done",
+      "payload": {
+        "session_id": "string",
+        "n_turns": "int"
+      },
+      "description": "The whole turn (incl. auto-run loop) completed."
+    },
+    {
+      "name": "chat.error",
+      "payload": {
+        "session_id": "string",
+        "code": "string",
+        "message": "string"
+      },
+      "description": "A recoverable error during a turn."
+    },
+    {
+      "name": "models.pull_progress",
+      "payload": {
+        "name": "string",
+        "status": "string",
+        "completed": "int",
+        "total": "int"
+      },
+      "description": "Progress of a model download."
+    },
+    {
+      "name": "system.ollama_state",
+      "payload": {
+        "running": "bool"
+      },
+      "description": "Ollama daemon up/down transition."
+    }
+  ]
+}
