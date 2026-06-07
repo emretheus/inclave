@@ -16,9 +16,9 @@ export function Titlebar({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <div className="titlebar-drag flex h-12 items-center justify-between border-b border-border bg-surface/70 pl-20 pr-2.5 backdrop-blur-xl">
-      <div className="flex items-center gap-2">
-        <Logo variant="badge" className="size-[18px] rounded-[6px] shadow-xs" />
-        <span className="text-[13px] font-semibold tracking-tight">InClave</span>
+      <div className="flex items-center gap-2.5">
+        <Logo variant="badge" className="size-7 rounded-[8px] shadow-sm" />
+        <span className="text-[15px] font-semibold tracking-tight">InClave</span>
       </div>
 
       <div className="titlebar-no-drag flex items-center gap-1">

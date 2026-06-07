@@ -18,6 +18,10 @@ export function Logo({
   title?: string;
 }) {
   if (variant === "badge") {
+    // Tighter geometry than the app-icon master: the mark fills more of the
+    // square (thicker frame, larger arrow) so it stays legible at small inline
+    // sizes like the 28px titlebar badge. The OS adds its own padding for the
+    // dock icon, so the standalone .icns still breathes.
     return (
       <svg
         viewBox="0 0 1024 1024"
@@ -28,16 +32,16 @@ export function Logo({
       >
         <rect width="1024" height="1024" rx="232" fill="#0F0F14" />
         <rect
-          x="402"
-          y="300"
-          width="322"
-          height="424"
-          rx="118"
+          x="436"
+          y="276"
+          width="324"
+          height="472"
+          rx="128"
           fill="none"
           stroke="#FFFFFF"
-          strokeWidth="58"
+          strokeWidth="74"
         />
-        <path d="M250 512 L364 436 V588 Z" fill="#6C63FF" />
+        <path d="M226 512 L388 404 V620 Z" fill="#6C63FF" />
       </svg>
     );
   }

@@ -5,7 +5,7 @@ import { useChat } from "@/stores/chat";
 import { Markdown } from "@/components/Markdown";
 import { SandboxCard } from "@/components/SandboxCard";
 import { Logo } from "@/components/Logo";
-import { cn } from "@/lib/utils";
+import { cleanUserText, cn } from "@/lib/utils";
 
 export function Transcript() {
   const items = useChat((s) => s.items);
@@ -35,24 +35,7 @@ export function Transcript() {
             )}
           >
             {item.role === "user" ? (
-              <div className="flex max-w-[85%] flex-col items-end gap-1.5">
-                {item.fileNames && item.fileNames.length > 0 && (
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {item.fileNames.map((n) => (
-                      <span
-                        key={n}
-                        className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-                      >
-                        <Paperclip className="size-2.5" />
-                        {n}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm text-primary-foreground">
-                  {item.content}
-                </div>
-              </div>
+              <UserMessage content={item.content} fileNames={item.fileNames} />
             ) : (
               <div className="flex w-full max-w-full gap-2.5">
                 <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
@@ -67,6 +50,37 @@ export function Transcript() {
         ),
       )}
       <div ref={bottomRef} />
+    </div>
+  );
+}
+
+function UserMessage({ content, fileNames }: { content: string; fileNames?: string[] }) {
+  // Strip any embedded <<<FILE>>> blocks so the bubble shows only the question;
+  // surface attachments as chips (merging names the store tracked with any the
+  // engine embedded, e.g. on a resumed session).
+  const { text, fileNames: embedded } = cleanUserText(content);
+  const names = Array.from(new Set([...(fileNames ?? []), ...embedded]));
+
+  return (
+    <div className="flex max-w-[85%] flex-col items-end gap-1.5">
+      {names.length > 0 && (
+        <div className="flex flex-wrap justify-end gap-1">
+          {names.map((n) => (
+            <span
+              key={n}
+              className="flex items-center gap-1.5 rounded-lg border border-border/70 bg-surface-2 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-xs"
+            >
+              <Paperclip className="size-3 text-subtle-foreground" />
+              {n}
+            </span>
+          ))}
+        </div>
+      )}
+      {text && (
+        <div className="rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm leading-relaxed text-primary-foreground shadow-sm">
+          {text}
+        </div>
+      )}
     </div>
   );
 }
