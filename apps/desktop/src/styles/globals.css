@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/* Tailwind v4 CSS-first config. Tokens map to light + dark. The palette is
+   deliberately calm — privacy/trust reads as restraint, with one warm accent
+   (indigo→teal) reserved for primary actions and "running" states. */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.625rem;
+
+  /* light */
+  --background: oklch(0.99 0.002 250);
+  --foreground: oklch(0.21 0.01 260);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.97 0.003 250);
+  --muted: oklch(0.96 0.004 250);
+  --muted-foreground: oklch(0.52 0.012 260);
+  --border: oklch(0.91 0.005 255);
+  --input: oklch(0.91 0.005 255);
+  --ring: oklch(0.55 0.16 265);
+
+  --primary: oklch(0.55 0.16 265);
+  --primary-foreground: oklch(0.99 0.002 250);
+  --accent: oklch(0.7 0.13 195);
+  --accent-foreground: oklch(0.21 0.01 260);
+
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.99 0.002 250);
+  --success: oklch(0.6 0.14 150);
+  --warning: oklch(0.74 0.16 75);
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
+}
+
+.dark {
+  --background: oklch(0.17 0.008 265);
+  --foreground: oklch(0.94 0.004 250);
+  --surface: oklch(0.21 0.01 265);
+  --surface-2: oklch(0.24 0.012 265);
+  --muted: oklch(0.26 0.012 265);
+  --muted-foreground: oklch(0.68 0.012 260);
+  --border: oklch(0.3 0.012 265);
+  --input: oklch(0.3 0.012 265);
+  --ring: oklch(0.65 0.15 265);
+
+  --primary: oklch(0.66 0.15 265);
+  --primary-foreground: oklch(0.16 0.008 265);
+  --accent: oklch(0.72 0.12 195);
+  --accent-foreground: oklch(0.16 0.008 265);
+
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.96 0.004 250);
+  --success: oklch(0.65 0.14 150);
+  --warning: oklch(0.78 0.15 75);
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+/* The whole app sits on a translucent surface so macOS vibrancy shows through
+   behind the sidebar. */
+.vibrancy {
+  background: color-mix(in oklch, var(--color-surface) 72%, transparent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--color-muted-foreground) 30%, transparent);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The custom titlebar drag region. */
+.titlebar-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Streaming caret. */
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.streaming-caret::after {
+  content: "▋";
+  margin-left: 1px;
+  animation: caret-blink 1s step-end infinite;
+  color: var(--color-primary);
+}
