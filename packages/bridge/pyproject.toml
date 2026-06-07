@@ -1,0 +1,48 @@
+[project]
+name = "inclave-bridge"
+version = "0.1.0"
+description = "InClave desktop bridge — JSON-RPC sidecar exposing the engine to the Tauri app"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
+    { name = "Emre Kocyigit", email = "kocyigit.emre.30@gmail.com" },
+    { name = "Ibrahim Furkan Gulcan", email = "ibrahimfurkangulcan@gmail.com" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "inclave-core",
+    "inclave-ollama",
+    "inclave-sandbox",
+    "inclave-cli",
+]
+
+[project.scripts]
+inclave-bridge = "inclave_bridge.server:main"
+
+[tool.uv.sources]
+inclave-core = { workspace = true }
+inclave-ollama = { workspace = true }
+inclave-sandbox = { workspace = true }
+inclave-cli = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/inclave_bridge"]
+
+[tool.mypy]
+packages = ["inclave_bridge"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "inclave_core.*"
+ignore_missing_imports = true
