@@ -9,6 +9,7 @@ from inclave_core import (
     LAST,
     CLIError,
     Session,
+    delete_session,
     list_sessions,
     load_session,
     save_session,
@@ -93,3 +94,19 @@ def test_partial_dict_loads_with_defaults(fake_home: Path) -> None:
     assert s.model == "x"
     assert s.messages == []
     assert s.file_ids == []
+
+
+def test_delete_session_removes_file(fake_home: Path) -> None:
+    save_session(_mk(), "todelete")
+    assert load_session("todelete") is not None
+    assert delete_session("todelete") is True
+    assert load_session("todelete") is None
+
+
+def test_delete_session_missing_returns_false(fake_home: Path) -> None:
+    assert delete_session("never-existed") is False
+
+
+def test_delete_session_invalid_name_raises(fake_home: Path) -> None:
+    with pytest.raises(CLIError):
+        delete_session("bad/name")

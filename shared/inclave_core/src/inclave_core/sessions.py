@@ -116,6 +116,17 @@ def load_session(name: str = LAST) -> Session | None:
     return Session.from_dict(data)
 
 
+def delete_session(name: str) -> bool:
+    """Delete a named session. Returns True if a file was removed, False if it
+    did not exist. Raises CLIError on an invalid name.
+    """
+    path = _session_path(name)
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def list_sessions() -> list[tuple[str, str]]:
     """Return (name, saved_at) pairs, newest first. `last` always sorts to top
     if it exists; named sessions follow by saved_at descending.
