@@ -75,9 +75,9 @@ jobs:
         run: uv python install 3.12
 
       - name: Install pnpm
+        # Version comes from package.json "packageManager"; don't also pass
+        # `version:` here or action-setup errors with "Multiple versions".
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -162,16 +162,16 @@ jobs:
       - name: No non-localhost URLs in the desktop frontend / Rust shell
         # The desktop app inherits the same privacy promise: the renderer makes
         # no network calls, and the Rust shell only spawns the local sidecar.
-        # Allow-list: localhost, the Vite dev port, schema/docs URLs in comments
-        # are excluded by scanning only string-y http(s) origins. Tauri's own
-        # ipc.localhost / schema URLs are permitted.
+        # Allow-list: localhost, Tauri's ipc.localhost / schema.tauri.app, and
+        # the W3C SVG/XML namespace URIs (xmlns="http://www.w3.org/..."), which
+        # are identifiers, not network calls — inline SVGs (the logo) carry them.
         run: |
           set -e
           hits=$(grep -rEho 'https?://[A-Za-z0-9._-]+(:[0-9]+)?' \
                   apps/desktop/src apps/desktop/src-tauri/src \
                   --include='*.ts' --include='*.tsx' --include='*.rs' \
               | sort -u || true)
-          allow='^https?://(127\.0\.0\.1|localhost|ipc\.localhost|schema\.tauri\.app)(:[0-9]+)?$'
+          allow='^https?://(127\.0\.0\.1|localhost|ipc\.localhost|schema\.tauri\.app|www\.w3\.org)(:[0-9]+)?$'
           bad=$(echo "$hits" | grep -vE "$allow" || true)
           if [ -n "$bad" ]; then
             echo "::error::Non-localhost URL referenced in desktop production code:"

@@ -30,9 +30,8 @@ jobs:
         run: uv python install 3.12
 
       - name: Install pnpm
+        # Version comes from package.json "packageManager".
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Install Node
         uses: actions/setup-node@v4
