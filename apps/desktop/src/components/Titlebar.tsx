@@ -15,19 +15,23 @@ export function Titlebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const activeModel = useSystem((s) => s.activeModel);
 
   return (
-    <div className="titlebar-drag flex h-11 items-center justify-between border-b border-border bg-surface/60 pl-20 pr-3 backdrop-blur">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Logo variant="badge" className="size-4 rounded-[5px]" />
-        <span className="text-muted-foreground">InClave</span>
+    <div className="titlebar-drag flex h-12 items-center justify-between border-b border-border bg-surface/70 pl-20 pr-2.5 backdrop-blur-xl">
+      <div className="flex items-center gap-2">
+        <Logo variant="badge" className="size-[18px] rounded-[6px] shadow-xs" />
+        <span className="text-[13px] font-semibold tracking-tight">InClave</span>
       </div>
 
-      <div className="titlebar-no-drag flex items-center gap-1.5">
+      <div className="titlebar-no-drag flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 rounded-lg border border-border/60 bg-surface-2/60 px-2.5 text-xs font-medium hover:bg-surface-3"
+            >
               <Cpu className="size-3.5 text-accent" />
               <span className="max-w-40 truncate">{activeModel ?? "no model"}</span>
-              <ChevronDown className="size-3 text-muted-foreground" />
+              <ChevronDown className="size-3 text-subtle-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
@@ -35,8 +39,13 @@ export function Titlebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" className="size-7" onClick={onOpenSettings}>
-          <Cog className="size-4 text-muted-foreground" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-subtle-foreground hover:text-foreground"
+          onClick={onOpenSettings}
+        >
+          <Cog className="size-4" />
         </Button>
       </div>
     </div>

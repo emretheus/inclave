@@ -75,7 +75,7 @@ export function Composer() {
         </div>
       )}
 
-      <div className="flex items-end gap-2 rounded-2xl border border-border bg-surface p-2 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring/40">
+      <div className="edge-highlight flex items-end gap-2 rounded-2xl border border-border-strong bg-surface-2 p-2 shadow-md transition-all focus-within:border-primary/40 focus-within:shadow-lg focus-within:ring-4 focus-within:ring-primary/10">
         <Button
           variant="ghost"
           size="icon"
@@ -112,7 +112,7 @@ export function Composer() {
           </Button>
         )}
       </div>
-      <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
+      <p className="mt-2 text-center text-[11px] text-subtle-foreground">
         Python the model writes runs automatically in a no-network sandbox.
       </p>
     </div>

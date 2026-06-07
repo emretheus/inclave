@@ -43,10 +43,6 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "hardenedRuntime": true
-    },
-    "resources": {
-      "binaries/inclave-bridge": "inclave-bridge",
-      "binaries/sandbox-runtime": "sandbox-runtime"
     }
   }
 }
