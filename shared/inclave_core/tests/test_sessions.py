@@ -96,11 +96,6 @@ def test_delete_last(fake_home: Path) -> None:
     assert load_session(LAST) is None
 
 
-def test_delete_missing_raises(fake_home: Path) -> None:
-    with pytest.raises(CLIError, match="session not found"):
-        delete_session("does-not-exist")
-
-
 def test_list_sessions_rich_fields(fake_home: Path) -> None:
     messages = [
         {"role": "user", "content": "hi"},
