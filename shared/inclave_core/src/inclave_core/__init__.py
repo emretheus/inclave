@@ -20,6 +20,7 @@ from inclave_core.logging import get_logger, setup_logging
 from inclave_core.sessions import (
     LAST,
     Session,
+    SessionSummary,
     delete_session,
     list_sessions,
     load_session,
@@ -52,6 +53,7 @@ __all__ = [
     "OllamaUnavailableError",
     "SandboxError",
     "Session",
+    "SessionSummary",
     "add_file",
     "clear_workspace",
     "delete_session",

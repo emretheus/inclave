@@ -15,6 +15,7 @@ from inclave_core import (
     OllamaUnavailableError,
     add_file,
     clear_workspace,
+    delete_session,
     enclave_dir,
     get_logger,
     list_files,
@@ -416,9 +417,36 @@ def sessions_list() -> None:
     table = Table(title="chat sessions")
     table.add_column("name", style="cyan")
     table.add_column("saved at")
-    for name, ts in items:
-        table.add_row(name, ts or "—")
+    table.add_column("model")
+    table.add_column("turns", justify="right")
+    table.add_column("files", justify="right")
+    for s in items:
+        table.add_row(
+            s.name,
+            s.saved_at or "—",
+            s.model or "—",
+            str(s.turns),
+            str(s.file_count),
+        )
     console.print(table)
+
+
+@sessions_app.command("delete")
+def sessions_delete(
+    name: str = typer.Argument(..., help="Session name (as shown by 'inclave sessions list')."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation."),
+) -> None:
+    """Delete a saved session by name."""
+    if not yes:
+        if not typer.confirm(f"delete session {name!r}?"):
+            console.print("[dim]aborted[/dim]")
+            return
+    try:
+        delete_session(name)
+    except InClaveError as e:
+        _fail(e)
+        return
+    console.print(f"[green]✓[/green] deleted session {name!r}")
 
 
 @app.command()
