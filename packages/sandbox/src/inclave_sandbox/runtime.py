@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from inclave_sandbox.errors import SandboxError
@@ -5,9 +6,28 @@ from inclave_sandbox.errors import SandboxError
 RUNTIME_DIR_NAME = "runtime"
 VENV_NAME = ".venv"
 
+# When the engine is bundled inside a desktop app (PyInstaller / Tauri), the
+# sandbox runtime can't be located relative to this source file. The bundler
+# sets INCLAVE_SANDBOX_RUNTIME to the packaged runtime directory.
+RUNTIME_ENV = "INCLAVE_SANDBOX_RUNTIME"
+
 
 def runtime_root() -> Path:
-    """Absolute path to packages/sandbox/runtime/ regardless of install mode."""
+    """Absolute path to the sandbox runtime/ directory, regardless of how the
+    engine was installed (editable checkout, wheel, or app bundle).
+
+    Resolution order:
+      1. $INCLAVE_SANDBOX_RUNTIME — set by the desktop bundler.
+      2. packages/sandbox/runtime/ relative to this file — dev / editable.
+      3. <pkg>/runtime/ — wheel-installed layout.
+    """
+    override = os.environ.get(RUNTIME_ENV)
+    if override:
+        path = Path(override).expanduser()
+        if path.is_dir():
+            return path
+        raise SandboxError(f"{RUNTIME_ENV} points at a missing directory: {path}")
+
     here = Path(__file__).resolve()
     candidates = [
         here.parent.parent.parent / RUNTIME_DIR_NAME,  # dev / editable
@@ -17,7 +37,8 @@ def runtime_root() -> Path:
         if path.is_dir():
             return path
     raise SandboxError(
-        f"sandbox runtime directory not found. Looked in: {[str(c) for c in candidates]}"
+        f"sandbox runtime directory not found. Looked in: {[str(c) for c in candidates]} "
+        f"(set {RUNTIME_ENV} when running from a bundle)"
     )
 
 

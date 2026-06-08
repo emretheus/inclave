@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 [manifest]
 members = [
     "inclave",
+    "inclave-bridge",
     "inclave-cli",
     "inclave-core",
     "inclave-ollama",
@@ -249,6 +250,34 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.5" },
 ]
+
+[[package]]
+name = "inclave-bridge"
+version = "0.1.0"
+source = { editable = "packages/bridge" }
+dependencies = [
+    { name = "inclave-cli" },
+    { name = "inclave-core" },
+    { name = "inclave-ollama" },
+    { name = "inclave-sandbox" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "inclave-cli", editable = "packages/cli" },
+    { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "inclave-ollama", editable = "packages/ollama" },
+    { name = "inclave-sandbox", editable = "packages/sandbox" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "inclave-cli"

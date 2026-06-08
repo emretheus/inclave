@@ -56,6 +56,71 @@ jobs:
             coverage.xml
           if-no-files-found: ignore
 
+  # Desktop app: lint + typecheck + test the React frontend, the generated IPC
+  # contract, and the Rust shell. The bridge sidecar is exercised by the Python
+  # `test` job above (it's a uv-workspace package).
+  desktop:
+    name: Desktop (frontend + Rust)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Install pnpm
+        # Version comes from package.json "packageManager"; don't also pass
+        # `version:` here or action-setup errors with "Multiple versions".
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync Python workspace (for schema export)
+        run: uv sync --all-packages --all-extras
+
+      - name: Regenerate + verify IPC contract is fresh
+        run: |
+          uv run python packages/bridge/scripts/export_schema.py
+          pnpm gen:ipc
+          if ! git diff --quiet packages-js/ipc-contract; then
+            echo "::error::IPC contract is stale. Run export_schema.py + pnpm gen:ipc and commit."
+            git diff packages-js/ipc-contract
+            exit 1
+          fi
+
+      - name: Lint (eslint)
+        run: pnpm --filter @inclave/desktop lint
+
+      - name: Type check (tsc)
+        run: pnpm --filter @inclave/desktop typecheck
+
+      - name: Test (vitest)
+        run: pnpm --filter @inclave/desktop test
+
+      - name: Build frontend
+        run: pnpm --filter @inclave/desktop build
+
+      - name: Rust fmt
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+
+      - name: Rust clippy
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy -- -D warnings
+
   # Privacy / hygiene checks. These have to be cheap, deterministic, and
   # enforce the things the README promises: no secrets, no outbound HTTP
   # to anything other than localhost.
@@ -92,4 +157,25 @@ jobs:
             echo "$bad"
             exit 1
           fi
-          echo "all URLs in production code point at localhost — ok"
+          echo "all URLs in Python production code point at localhost — ok"
+
+      - name: No non-localhost URLs in the desktop frontend / Rust shell
+        # The desktop app inherits the same privacy promise: the renderer makes
+        # no network calls, and the Rust shell only spawns the local sidecar.
+        # Allow-list: localhost, Tauri's ipc.localhost / schema.tauri.app, and
+        # the W3C SVG/XML namespace URIs (xmlns="http://www.w3.org/..."), which
+        # are identifiers, not network calls — inline SVGs (the logo) carry them.
+        run: |
+          set -e
+          hits=$(grep -rEho 'https?://[A-Za-z0-9._-]+(:[0-9]+)?' \
+                  apps/desktop/src apps/desktop/src-tauri/src \
+                  --include='*.ts' --include='*.tsx' --include='*.rs' \
+              | sort -u || true)
+          allow='^https?://(127\.0\.0\.1|localhost|ipc\.localhost|schema\.tauri\.app|www\.w3\.org)(:[0-9]+)?$'
+          bad=$(echo "$hits" | grep -vE "$allow" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Non-localhost URL referenced in desktop production code:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "all URLs in desktop production code point at localhost — ok"

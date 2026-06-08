@@ -38,3 +38,25 @@ htmlcov/
 packages/sandbox/runtime/.venv/
 # Per-developer convenience Makefile (not part of the public build).
 Makefile
+
+# JS / pnpm / turbo
+node_modules/
+.turbo/
+*.tsbuildinfo
+
+# Generated IPC TS (regenerated from schema.json by `pnpm gen:ipc`).
+packages-js/ipc-contract/index.ts
+
+# Tauri / Rust build output
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+apps/desktop/dist/
+
+# Bundled sidecar artifacts (built by scripts/build-sidecar.sh at package time).
+apps/desktop/.pyi-dist/
+apps/desktop/.pyi-build/
+apps/desktop/.pyi-spec/
+apps/desktop/src-tauri/binaries/inclave-bridge
+apps/desktop/src-tauri/binaries/sandbox-runtime/
+apps/desktop/src-tauri/binaries/*.so
+apps/desktop/src-tauri/binaries/_internal/

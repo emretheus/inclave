@@ -160,18 +160,38 @@ git clone https://github.com/emretheus/inclave.git && cd inclave
 uv tool install --from packages/cli inclave-cli
 ```
 
+## Desktop app
+
+InClave also ships as a **native macOS desktop app** (React + TailwindCSS +
+shadcn/ui in a Tauri shell) that reuses the exact same privacy-first engine —
+streaming chat, the auto-run Seatbelt sandbox, and the local-only guarantee.
+The UI talks to the engine through a JSON-RPC sidecar (`packages/bridge`) that
+opens no socket; the only network call remains the engine → local Ollama.
+
+```bash
+pnpm install && uv sync --all-packages --all-extras
+uv run python packages/bridge/scripts/export_schema.py && pnpm gen:ipc
+pnpm tauri dev          # launch the desktop app
+```
+
+See [`apps/desktop/README.md`](apps/desktop/README.md) for architecture and
+[`DESKTOP_PLAN.md`](DESKTOP_PLAN.md) for the full design.
+
 ## Development
 
 ```bash
 uv sync --all-packages --all-extras
-uv run pytest                   # 170+ tests
+uv run pytest                   # 200+ tests
 uv run ruff check . && uv run ruff format --check .
 uv run mypy packages shared     # strict
 ```
 
 A [`uv`](https://docs.astral.sh/uv/) workspace: `packages/cli` (Typer +
 REPL), `packages/ollama` (inference), `packages/sandbox` (Seatbelt
-executor), `shared/inclave_core` (config, sessions, logging).
+executor), `packages/bridge` (desktop JSON-RPC sidecar),
+`shared/inclave_core` (config, sessions, logging). The desktop frontend +
+Tauri shell live under `apps/desktop`, with a `pnpm` workspace alongside the
+`uv` one.
 
 ## Contributing
 
