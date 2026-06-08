@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "_comment": "Packaging-only overlay merged in at release time (tauri build --config tauri.bundle.conf.json). It declares the bundled Python sidecar + sandbox runtime as app resources. Kept out of the base config so `cargo clippy` / dev builds don't require the PyInstaller artifacts (which are gitignored and only produced by scripts/build-sidecar.sh).",
+  "bundle": {
+    "resources": {
+      "binaries/inclave-bridge": "inclave-bridge",
+      "binaries/sandbox-runtime": "sandbox-runtime"
+    }
+  }
+}

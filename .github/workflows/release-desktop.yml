@@ -1,0 +1,96 @@
+name: Release Desktop
+
+# Build a signed + notarized macOS .dmg on tag. Signing/notarization secrets are
+# optional — without them the job still produces an unsigned .app/.dmg artifact
+# you can test locally (Gatekeeper will warn). With them set, the bundle is
+# Developer-ID signed, notarized, and stapled.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build macOS bundle
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Install pnpm
+        # Version comes from package.json "packageManager".
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync Python workspace
+        run: uv sync --all-packages --all-extras
+
+      - name: Generate IPC contract
+        run: |
+          uv run python packages/bridge/scripts/export_schema.py
+          pnpm gen:ipc
+
+      - name: Build Python sidecar (PyInstaller)
+        run: bash apps/desktop/scripts/build-sidecar.sh
+
+      - name: Build Tauri app
+        working-directory: apps/desktop
+        env:
+          # Signing / notarization — all optional; absent → unsigned build.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # The bundle overlay declares the PyInstaller sidecar + sandbox runtime
+        # as app resources (kept out of the base config so CI clippy/build works
+        # without those artifacts).
+        run: pnpm tauri build --target ${{ matrix.target }} --config src-tauri/tauri.bundle.conf.json
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: inclave-${{ matrix.target }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+          if-no-files-found: warn
+
+  release:
+    name: Attach to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.dmg
+          fail_on_unmatched_files: false

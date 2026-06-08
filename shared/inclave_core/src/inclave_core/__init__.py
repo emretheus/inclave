@@ -20,6 +20,7 @@ from inclave_core.logging import get_logger, setup_logging
 from inclave_core.sessions import (
     LAST,
     Session,
+    delete_session,
     list_sessions,
     load_session,
     save_session,
@@ -53,6 +54,7 @@ __all__ = [
     "Session",
     "add_file",
     "clear_workspace",
+    "delete_session",
     "enclave_dir",
     "find_file",
     "get_logger",
