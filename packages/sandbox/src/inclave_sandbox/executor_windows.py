@@ -181,9 +181,7 @@ def _assign_to_job(job: wintypes.HANDLE, pid: int) -> None:
         raise SandboxError(f"OpenProcess failed (err={ctypes.get_last_error()})")
     try:
         if not k32.AssignProcessToJobObject(job, handle):
-            raise SandboxError(
-                f"AssignProcessToJobObject failed (err={ctypes.get_last_error()})"
-            )
+            raise SandboxError(f"AssignProcessToJobObject failed (err={ctypes.get_last_error()})")
     finally:
         k32.CloseHandle(handle)
 
