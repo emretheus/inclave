@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from inclave_sandbox.errors import SandboxError
@@ -45,10 +46,15 @@ def runtime_root() -> Path:
 def runtime_python() -> Path:
     """Absolute path to the bundled Python interpreter inside the runtime venv.
 
-    Raises SandboxError with a build hint if the venv hasn't been created yet.
+    venv layout differs by platform: POSIX uses ``bin/python3`` while Windows
+    uses ``Scripts/python.exe``. Raises SandboxError with a build hint if the
+    venv hasn't been created yet.
     """
     venv = runtime_root() / VENV_NAME
-    py = venv / "bin" / "python3"
+    if sys.platform == "win32":
+        py = venv / "Scripts" / "python.exe"
+    else:
+        py = venv / "bin" / "python3"
     if not py.is_file():
         raise SandboxError(
             f"sandbox runtime venv not built. Build it with:\n  cd {runtime_root()} && uv sync"

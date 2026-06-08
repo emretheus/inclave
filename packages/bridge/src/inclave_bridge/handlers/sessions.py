@@ -17,20 +17,17 @@ from inclave_bridge import serialize
 
 
 def list_(params: dict[str, Any]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for name, saved_at in list_sessions():
-        sess = load_session(name)
-        model = sess.model if sess else ""
-        n_turns = sum(1 for m in sess.messages if m["role"] == "assistant") if sess else 0
-        out.append(
-            {
-                "name": name,
-                "saved_at": saved_at,
-                "model": model,
-                "n_turns": n_turns,
-            }
-        )
-    return out
+    # list_sessions() returns SessionSummary objects with everything we need,
+    # so there's no need to re-load each session here.
+    return [
+        {
+            "name": s.name,
+            "saved_at": s.saved_at,
+            "model": s.model,
+            "n_turns": s.turns,
+        }
+        for s in list_sessions()
+    ]
 
 
 def load(params: dict[str, Any]) -> dict[str, Any]:

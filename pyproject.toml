@@ -120,6 +120,13 @@ ignore_missing_imports = true
 module = ["openpyxl", "openpyxl.*", "pypdf", "pypdf.*"]
 ignore_missing_imports = true
 
+# The Windows sandbox backend is imported lazily only on win32 (see api.py).
+# On the macOS/Linux dev+CI host, ctypes lacks the Windows-only symbols it uses
+# (WinDLL, windll, get_last_error), so type-check it only with win32 semantics.
+[[tool.mypy.overrides]]
+module = "inclave_sandbox.executor_windows"
+disable_error_code = ["attr-defined", "name-defined", "no-any-return"]
+
 [tool.pytest.ini_options]
 testpaths = ["packages", "shared", "tests"]
 addopts = "-ra"
