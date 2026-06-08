@@ -1,4 +1,4 @@
-"""Sessions: autosave + named save + load + list."""
+"""Sessions: autosave + named save + load + list + delete."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from inclave_core import (
     LAST,
     CLIError,
     Session,
+    delete_session,
     list_sessions,
     load_session,
     save_session,
@@ -50,7 +51,7 @@ def test_save_named_then_list(fake_home: Path) -> None:
     save_session(_mk(model="b"), name="beta")
     save_session(_mk(model="last"))
     items = list_sessions()
-    names = [n for n, _ in items]
+    names = [s.name for s in items]
     assert names[0] == LAST  # last sorts first when present
     assert {"alpha", "beta"} <= set(names)
 
@@ -80,6 +81,51 @@ def test_round_trip_keeps_message_shape(fake_home: Path) -> None:
     s = load_session(LAST)
     assert s is not None
     assert s.messages == messages
+
+
+def test_delete_session(fake_home: Path) -> None:
+    save_session(_mk(), name="to-delete")
+    assert load_session("to-delete") is not None
+    delete_session("to-delete")
+    assert load_session("to-delete") is None
+
+
+def test_delete_last(fake_home: Path) -> None:
+    save_session(_mk())
+    delete_session(LAST)
+    assert load_session(LAST) is None
+
+
+def test_delete_missing_raises(fake_home: Path) -> None:
+    with pytest.raises(CLIError, match="session not found"):
+        delete_session("does-not-exist")
+
+
+def test_list_sessions_rich_fields(fake_home: Path) -> None:
+    messages = [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+        {"role": "user", "content": "bye"},
+        {"role": "assistant", "content": "farewell"},
+    ]
+    sess = Session(model="llama3.2", workdir="/tmp", file_ids=["aa", "bb"], messages=messages)
+    save_session(sess)
+    items = list_sessions()
+    assert items
+    s = items[0]
+    assert s.name == LAST
+    assert s.model == "llama3.2"
+    assert s.turns == 2
+    assert s.file_count == 2
+
+
+def test_delete_removes_from_list(fake_home: Path) -> None:
+    save_session(_mk(), name="alpha")
+    save_session(_mk(), name="beta")
+    delete_session("alpha")
+    names = [s.name for s in list_sessions()]
+    assert "alpha" not in names
+    assert "beta" in names
 
 
 def test_partial_dict_loads_with_defaults(fake_home: Path) -> None:
