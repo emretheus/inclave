@@ -34,6 +34,7 @@ from inclave_core import (
     InClaveError,
     OllamaUnavailableError,
 )
+from inclave_core.config import load_config
 from inclave_core.errors import OllamaError
 
 from inclave_cli.context import (
@@ -173,10 +174,29 @@ def python_block_in_latest_assistant(messages: list[dict[str, str]]) -> str | No
 # --------------------------------------------------------------------------- #
 
 
-def stream_chat(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
-    """Yield content chunks from ollama.chat. Raises InClaveError subclasses."""
+def stream_chat(
+    model: str,
+    messages: list[dict[str, str]],
+    num_ctx: int | None = None,
+) -> Iterator[str]:
+    """Yield content chunks from ollama.chat. Raises InClaveError subclasses.
+
+    `num_ctx` must be passed explicitly. Omitting `options` entirely lets Ollama
+    apply its own default context (commonly 2048-4096) regardless of the model's
+    trained maximum, which silently front-truncates the prompt — and since the
+    system prompt is the *oldest* message, it is the first thing evicted. That
+    drops the "never invent file contents" guard with no error and no warning.
+    Defaults to the configured value rather than leaving it unset.
+    """
+    if num_ctx is None:
+        num_ctx = load_config().num_ctx
     try:
-        response = ollama.chat(model=model, messages=messages, stream=True)
+        response = ollama.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+            options={"num_ctx": num_ctx},
+        )
         for chunk in response:
             msg = chunk.get("message") or {}
             piece = msg.get("content")

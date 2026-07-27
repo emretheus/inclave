@@ -17,6 +17,36 @@ def _fake_stream(text: str):  # type: ignore[no-untyped-def]
     return _gen
 
 
+def test_stream_chat_sets_num_ctx(fake_home: Path) -> None:
+    """Regression: omitting `options` lets Ollama apply its own small default
+    context, which front-truncates the prompt and evicts the system prompt
+    first. num_ctx must always reach ollama.chat.
+    """
+    captured: dict[str, object] = {}
+
+    def fake_chat(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return iter(())
+
+    with patch("inclave_cli.chat_engine.ollama.chat", fake_chat):
+        list(engine.stream_chat("m", [{"role": "user", "content": "hi"}]))
+
+    assert captured["options"] == {"num_ctx": 32768}
+
+
+def test_stream_chat_num_ctx_override(fake_home: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_chat(**kwargs):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return iter(())
+
+    with patch("inclave_cli.chat_engine.ollama.chat", fake_chat):
+        list(engine.stream_chat("m", [{"role": "user", "content": "hi"}], num_ctx=4096))
+
+    assert captured["options"] == {"num_ctx": 4096}
+
+
 def test_python_blocks_detection() -> None:
     content = "text\n```python\nprint('hi')\n```\nmore"
     assert engine.python_blocks_in(content) == ["print('hi')"]
