@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import os
-import resource
 import shutil
 import signal
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
+
+if sys.platform != "win32":
+    import resource
 
 from inclave_sandbox.api import ExecutionResult, SandboxPolicy
 from inclave_sandbox.errors import SandboxError

@@ -91,16 +91,12 @@ def _kernel32() -> ctypes.WinDLL:
 
 
 def _build_env(workdir: Path) -> dict[str, str]:
-    """Return a minimal, predictable environment for the jailed process.
-
-    Windows counterpart to the macOS ``_build_env``. We keep SystemRoot (dyld
-    equivalent: the loader needs it to find system DLLs) and point all temp/home
-    paths at the workdir so stray writes land inside the jail. PATH is scoped to
-    the runtime interpreter's directory only.
-    """
     py_dir = str(runtime_python().parent)
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    system_drive = os.environ.get("SystemDrive", "C:")
+
     return {
+        "SystemDrive": system_drive,
         "SystemRoot": system_root,
         "PATH": f"{py_dir};{system_root}\\System32",
         "HOME": str(workdir),
@@ -149,7 +145,7 @@ def _create_job(policy: SandboxPolicy) -> wintypes.HANDLE:
         | JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         | JOB_OBJECT_LIMIT_PROCESS_TIME
     )
-    basic.ActiveProcessLimit = 1
+    basic.ActiveProcessLimit = 2
     # CPU time limit is expressed in 100-nanosecond ticks.
     basic.PerProcessUserTimeLimit = policy.cpu_seconds * 10_000_000
     info.BasicLimitInformation = basic
