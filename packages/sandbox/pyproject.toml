@@ -1,7 +1,7 @@
 [project]
 name = "inclave-sandbox"
 version = "0.1.0"
-description = "macOS Seatbelt-based isolated code execution for inclave"
+description = "OS-level isolated code execution for inclave (macOS Seatbelt, Windows Job Objects)"
 license = { text = "Apache-2.0" }
 authors = [
     { name = "Emre Ulgac", email = "ulgacemre@gmail.com" },
