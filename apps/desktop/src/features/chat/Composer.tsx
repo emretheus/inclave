@@ -11,7 +11,7 @@ import { FileIcon } from "@/components/FileIcon";
 export function Composer() {
   const [text, setText] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const { send, cancel, busy } = useChat();
+  const { send, cancel, busy, cancelling } = useChat();
   const { files, attachedIds, toggleAttached, addPaths } = useWorkspace();
 
   const attached = files.filter((f) => attachedIds.has(f.id));
@@ -98,7 +98,16 @@ export function Composer() {
           className="min-h-9 flex-1 border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
         />
         {busy ? (
-          <Button size="icon" variant="secondary" className="size-9 shrink-0" onClick={() => void cancel()}>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="size-9 shrink-0"
+            onClick={() => void cancel()}
+            // Stays disabled-looking until the bridge confirms the turn stopped,
+            // so the button can't claim success while tokens are still arriving.
+            disabled={cancelling}
+            title={cancelling ? "Stopping…" : "Stop"}
+          >
             <Square className="size-3.5 fill-current" />
           </Button>
         ) : (

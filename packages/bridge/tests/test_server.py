@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -20,6 +21,206 @@ def _server() -> tuple[BridgeServer, io.StringIO]:
 
 def _frames(out: io.StringIO) -> list[dict[str, Any]]:
     return [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+
+
+def _chat_cfg(cfg: Any) -> None:
+    cfg.return_value.default_model = "m1"
+    cfg.return_value.sandbox_cpu_seconds = 30
+    cfg.return_value.sandbox_memory_mb = 512
+
+
+def test_cancel_is_deliverable_mid_turn(fake_home: Path) -> None:
+    """Regression: `chat.send` used to run inline on the reader thread, so while
+    a turn streamed nobody read stdin and the `chat.cancel` frame sat unread in
+    the pipe until the turn had already finished. This test streams until a
+    cancel is observed — on the old server it would hang forever.
+    """
+    cancel_seen = threading.Event()
+    stream_entered = threading.Event()
+
+    def blocking_stream(model, messages, num_ctx=None):  # type: ignore[no-untyped-def]
+        stream_entered.set()
+        # Keep yielding until the cancel lands. If cancel can't be delivered
+        # while we're streaming, this never terminates.
+        for _ in range(2000):
+            if cancel_seen.wait(timeout=0.01):
+                return
+            yield "tok "
+        raise AssertionError("cancel was never delivered during the turn")
+
+    srv, out = _server()
+    with (
+        patch("inclave_bridge.handlers.chat.engine.stream_chat", blocking_stream),
+        patch("inclave_bridge.handlers.chat.load_config") as cfg,
+    ):
+        _chat_cfg(cfg)
+        srv.dispatch_line(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "chat.send",
+                    "params": {"session_id": "s1", "text": "hi", "file_ids": []},
+                }
+            )
+        )
+        assert stream_entered.wait(timeout=5), "turn never started"
+
+        # The reader thread must still be responsive while the turn streams.
+        srv.dispatch_line(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "chat.cancel",
+                    "params": {"session_id": "s1"},
+                }
+            )
+        )
+        cancel_seen.set()
+
+        for t in srv._workers:
+            t.join(timeout=10)
+            assert not t.is_alive(), "turn did not stop after cancel"
+
+    frames = _frames(out)
+    methods = [f.get("method") for f in frames]
+    assert "chat.cancelled" in methods, "no chat.cancelled event emitted"
+
+    cancel_reply = next(f for f in frames if f.get("id") == 2)
+    assert cancel_reply["result"]["accepted"] is True
+
+    send_reply = next(f for f in frames if f.get("id") == 1)
+    assert send_reply["result"]["cancelled"] is True
+
+
+def test_cancel_with_no_turn_running_is_not_accepted(fake_home: Path) -> None:
+    """A cancel with nothing to stop must not leave a flag that kills the next
+    turn, and must report that it wasn't accepted.
+    """
+    srv, out = _server()
+    srv.handle_line(
+        json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": "chat.cancel", "params": {"session_id": "s1"}}
+        )
+    )
+    assert _frames(out)[0]["result"]["accepted"] is False
+    assert srv._store.is_cancelled("s1") is False
+
+    # The next turn must run to completion, not be killed by a stale flag.
+    out.truncate(0)
+    out.seek(0)
+
+    def fake_stream(model, messages, num_ctx=None):  # type: ignore[no-untyped-def]
+        yield from ["ok"]
+
+    with (
+        patch("inclave_bridge.handlers.chat.engine.stream_chat", fake_stream),
+        patch("inclave_bridge.handlers.chat.load_config") as cfg,
+    ):
+        _chat_cfg(cfg)
+        srv.handle_line(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "chat.send",
+                    "params": {"session_id": "s1", "text": "hi", "file_ids": []},
+                }
+            )
+        )
+    reply = next(f for f in _frames(out) if f.get("id") == 2)
+    assert reply["result"]["cancelled"] is False
+
+
+def test_second_send_while_busy_is_rejected(fake_home: Path) -> None:
+    """Now that turns run off-thread, a second send must not race the first
+    into the same messages list.
+    """
+    release = threading.Event()
+    started = threading.Event()
+
+    def blocking_stream(model, messages, num_ctx=None):  # type: ignore[no-untyped-def]
+        started.set()
+        release.wait(timeout=5)
+        yield "done"
+
+    srv, out = _server()
+    with (
+        patch("inclave_bridge.handlers.chat.engine.stream_chat", blocking_stream),
+        patch("inclave_bridge.handlers.chat.load_config") as cfg,
+    ):
+        _chat_cfg(cfg)
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "chat.send",
+            "params": {"session_id": "s1", "text": "hi", "file_ids": []},
+        }
+        srv.dispatch_line(json.dumps(payload))
+        assert started.wait(timeout=5)
+
+        srv.handle_line(json.dumps({**payload, "id": 2}))
+        second = next(f for f in _frames(out) if f.get("id") == 2)
+        assert second["result"] == {"ok": False, "reason": "busy"}
+
+        release.set()
+        for t in srv._workers:
+            t.join(timeout=10)
+
+
+def test_streaming_method_runs_off_reader_thread(fake_home: Path) -> None:
+    """dispatch_line must not block on a streaming method."""
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_stream(model, messages, num_ctx=None):  # type: ignore[no-untyped-def]
+        started.set()
+        release.wait(timeout=5)
+        yield "x"
+
+    srv, _out = _server()
+    with (
+        patch("inclave_bridge.handlers.chat.engine.stream_chat", blocking_stream),
+        patch("inclave_bridge.handlers.chat.load_config") as cfg,
+    ):
+        _chat_cfg(cfg)
+        srv.dispatch_line(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "chat.send",
+                    "params": {"session_id": "s1", "text": "hi", "file_ids": []},
+                }
+            )
+        )
+        # If dispatch blocked, the stream would already be finished.
+        assert started.wait(timeout=5)
+        assert not release.is_set()
+        release.set()
+        for t in srv._workers:
+            t.join(timeout=10)
+
+
+def test_non_streaming_method_stays_inline(fake_home: Path) -> None:
+    """Only chat.send/run_last go off-thread; everything else must be
+    synchronous so ordering stays deterministic.
+    """
+    srv, out = _server()
+    srv.dispatch_line('{"jsonrpc":"2.0","id":1,"method":"config.get"}')
+    assert srv._workers == []
+    assert _frames(out)[0]["id"] == 1
+
+
+def test_malformed_streaming_frame_takes_inline_error_path(fake_home: Path) -> None:
+    """A chat.send with non-dict params must produce a normal error, not a
+    thread that dies silently.
+    """
+    srv, out = _server()
+    srv.dispatch_line('{"jsonrpc":"2.0","id":1,"method":"chat.send","params":[]}')
+    assert srv._workers == []
+    assert _frames(out)[0]["error"]["code"] in (-32602, -32603)
 
 
 def test_config_get_roundtrip(fake_home: Path) -> None:
