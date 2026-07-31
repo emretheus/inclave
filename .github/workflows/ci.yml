@@ -46,6 +46,12 @@ jobs:
           COV_MIN: "75"
         run: uv run pytest --cov --cov-report=term-missing --cov-fail-under="$COV_MIN"
 
+      # Fixture-mode eval: deterministic, no Ollama, so it can gate every PR.
+      # This checks the harness and scorers, not model quality — real accuracy
+      # and latency numbers come from `inclave-eval --live` on a dev machine.
+      - name: Eval (fixture mode)
+        run: uv run inclave-eval --fail-under 100
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4

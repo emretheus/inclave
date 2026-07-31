@@ -8,6 +8,7 @@ members = [
     "inclave-bridge",
     "inclave-cli",
     "inclave-core",
+    "inclave-eval",
     "inclave-ollama",
     "inclave-sandbox",
 ]
@@ -220,6 +221,7 @@ dependencies = [
     { name = "httpx" },
     { name = "inclave-cli" },
     { name = "inclave-core" },
+    { name = "inclave-eval" },
     { name = "inclave-ollama" },
     { name = "inclave-sandbox" },
     { name = "ollama" },
@@ -238,6 +240,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "inclave-cli", editable = "packages/cli" },
     { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "inclave-eval", editable = "packages/eval" },
     { name = "inclave-ollama", editable = "packages/ollama" },
     { name = "inclave-sandbox", editable = "packages/sandbox" },
     { name = "ollama", specifier = ">=0.6.1" },
@@ -319,6 +322,30 @@ provides-extras = ["dev"]
 name = "inclave-core"
 version = "0.1.0"
 source = { editable = "shared/inclave_core" }
+
+[[package]]
+name = "inclave-eval"
+version = "0.1.0"
+source = { editable = "packages/eval" }
+dependencies = [
+    { name = "inclave-cli" },
+    { name = "inclave-core" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "inclave-cli", editable = "packages/cli" },
+    { name = "inclave-core", editable = "shared/inclave_core" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "inclave-ollama"
