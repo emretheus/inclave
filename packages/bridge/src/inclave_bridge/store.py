@@ -10,6 +10,7 @@ so `chat --resume` from the CLI keeps working.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 
 from inclave_core import (
@@ -34,6 +35,11 @@ class SessionStore:
     def __init__(self) -> None:
         self._sessions: dict[str, LiveSession] = {}
         self._cancelled: set[str] = set()
+        self._busy: set[str] = set()
+        # `chat.cancel` is set from the reader thread while a turn reads it from
+        # a worker thread, so the cancel set needs a lock. Sessions themselves
+        # stay effectively single-writer (one turn per session at a time).
+        self._cancel_lock = threading.Lock()
 
     def get_or_create(self, session_id: str, model: str) -> LiveSession:
         live = self._sessions.get(session_id)
@@ -85,10 +91,34 @@ class SessionStore:
 
     # Cancellation ---------------------------------------------------------- #
     def request_cancel(self, session_id: str) -> None:
-        self._cancelled.add(session_id)
+        with self._cancel_lock:
+            self._cancelled.add(session_id)
 
     def is_cancelled(self, session_id: str) -> bool:
-        return session_id in self._cancelled
+        with self._cancel_lock:
+            return session_id in self._cancelled
 
     def clear_cancel(self, session_id: str) -> None:
-        self._cancelled.discard(session_id)
+        with self._cancel_lock:
+            self._cancelled.discard(session_id)
+
+    def is_busy(self, session_id: str) -> bool:
+        """True while a streaming turn is in flight for this session."""
+        with self._cancel_lock:
+            return session_id in self._busy
+
+    def mark_busy(self, session_id: str) -> bool:
+        """Claim the session for a turn. False if one is already running.
+
+        Guards against a second `chat.send` arriving mid-turn now that the
+        reader thread keeps accepting requests during a turn.
+        """
+        with self._cancel_lock:
+            if session_id in self._busy:
+                return False
+            self._busy.add(session_id)
+            return True
+
+    def clear_busy(self, session_id: str) -> None:
+        with self._cancel_lock:
+            self._busy.discard(session_id)

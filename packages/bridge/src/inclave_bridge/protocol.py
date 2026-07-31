@@ -215,6 +215,12 @@ EVENTS: list[EventSpec] = [
         "The whole turn (incl. auto-run loop) completed.",
     ),
     EventSpec(
+        "chat.cancelled",
+        {"session_id": "string"},
+        "A turn stopped early because chat.cancel was requested. This — not the "
+        "reply to chat.cancel — is the signal that generation actually stopped.",
+    ),
+    EventSpec(
         "chat.error",
         {"session_id": "string", "code": "string", "message": "string"},
         "A recoverable error during a turn.",

@@ -22,6 +22,8 @@ interface ChatState {
   sessionId: string;
   items: TranscriptItem[];
   busy: boolean;
+  /** Cancel requested, turn not yet confirmed stopped. Still busy. */
+  cancelling: boolean;
   error: string | null;
   newSession: () => void;
   loadTranscript: (items: TranscriptItem[]) => void;
@@ -121,12 +123,29 @@ export const useChat = create<ChatState>((set, get) => {
 
     onEvent("chat.turn_done", ({ session_id }) => {
       if (session_id !== get().sessionId) return;
-      set({ busy: false });
+      set({ busy: false, cancelling: false });
+    });
+
+    // The turn actually stopped. This — not the reply to chat.cancel — is what
+    // clears the busy state: the reply only confirms the request was received,
+    // and the turn keeps streaming for a moment after it.
+    onEvent("chat.cancelled", ({ session_id }) => {
+      if (session_id !== get().sessionId) return;
+      set((s) => {
+        // Close out any message still marked streaming, so it doesn't sit with
+        // a blinking cursor forever.
+        const items = [...s.items];
+        const last = items[items.length - 1];
+        if (last && last.kind === "message" && last.streaming) {
+          items[items.length - 1] = { ...last, streaming: false };
+        }
+        return { items, busy: false, cancelling: false };
+      });
     });
 
     onEvent("chat.error", ({ session_id, message }) => {
       if (session_id !== get().sessionId) return;
-      set({ error: message, busy: false });
+      set({ error: message, busy: false, cancelling: false });
     });
   }
 
@@ -138,10 +157,17 @@ export const useChat = create<ChatState>((set, get) => {
     sessionId: "last",
     items: [],
     busy: false,
+    cancelling: false,
     error: null,
 
     newSession: () => {
-      set({ sessionId: `s-${Date.now()}`, items: [], busy: false, error: null });
+      set({
+        sessionId: `s-${Date.now()}`,
+        items: [],
+        busy: false,
+        cancelling: false,
+        error: null,
+      });
     },
 
     loadTranscript: (items) => set({ items }),
@@ -160,12 +186,13 @@ export const useChat = create<ChatState>((set, get) => {
           },
         ],
         busy: true,
+        cancelling: false,
         error: null,
       }));
       try {
         await ipc("chat.send", { session_id: get().sessionId, text, file_ids: fileIds });
       } catch (e) {
-        set({ error: String(e), busy: false });
+        set({ error: String(e), busy: false, cancelling: false });
       }
     },
 
@@ -181,8 +208,17 @@ export const useChat = create<ChatState>((set, get) => {
     },
 
     cancel: async () => {
-      await ipc("chat.cancel", { session_id: get().sessionId });
-      set({ busy: false });
+      // Do NOT clear `busy` here. The bridge answers this request as soon as it
+      // sets the cancel flag, while the turn is still winding down — clearing
+      // busy on the reply made the UI claim it had stopped while tokens kept
+      // streaming in, and unblocked the composer so a second send could race
+      // the running turn. Wait for the chat.cancelled event instead.
+      set({ cancelling: true });
+      try {
+        await ipc("chat.cancel", { session_id: get().sessionId });
+      } catch (e) {
+        set({ error: String(e), cancelling: false });
+      }
     },
   };
 });

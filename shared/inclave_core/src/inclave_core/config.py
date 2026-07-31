@@ -44,6 +44,12 @@ class InClaveConfig:
     sandbox_cpu_seconds: int = 30
     sandbox_memory_mb: int = 512
     auto_run: bool = False
+    # Context window passed to Ollama as options.num_ctx. Without this Ollama
+    # falls back to its own default (commonly 2048-4096) regardless of what the
+    # model was trained for, which silently front-truncates the prompt and drops
+    # the system prompt first. Sized to hold files.MAX_TOTAL_BYTES (200 KB of
+    # attachment text, roughly 50-65k tokens once truncated) plus history.
+    num_ctx: int = 32768
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -51,6 +57,7 @@ class InClaveConfig:
             "sandbox_cpu_seconds": self.sandbox_cpu_seconds,
             "sandbox_memory_mb": self.sandbox_memory_mb,
             "auto_run": self.auto_run,
+            "num_ctx": self.num_ctx,
         }
 
     @classmethod
@@ -68,6 +75,10 @@ class InClaveConfig:
         ar = data.get("auto_run")
         if isinstance(ar, bool):
             cfg.auto_run = ar
+        nc = data.get("num_ctx")
+        # bool is an int subclass; reject it so `"num_ctx": true` doesn't become 1.
+        if isinstance(nc, int) and not isinstance(nc, bool):
+            cfg.num_ctx = nc
         return cfg
 
 
@@ -76,6 +87,7 @@ CONFIG_KEYS: tuple[str, ...] = (
     "sandbox_cpu_seconds",
     "sandbox_memory_mb",
     "auto_run",
+    "num_ctx",
 )
 
 
@@ -114,8 +126,26 @@ def set_config_value(key: str, value: str) -> InClaveConfig:
         cfg.sandbox_memory_mb = _parse_int(key, value)
     elif key == "auto_run":
         cfg.auto_run = _parse_bool(key, value)
+    elif key == "num_ctx":
+        cfg.num_ctx = _parse_num_ctx(key, value)
     save_config(cfg)
     return cfg
+
+
+# A context this small cannot hold the system prompt plus a single attached file,
+# so Ollama would front-truncate and evict the system prompt — the exact failure
+# this setting exists to prevent. Refuse it loudly rather than degrade silently.
+MIN_NUM_CTX = 2048
+
+
+def _parse_num_ctx(key: str, value: str) -> int:
+    n = _parse_int(key, value)
+    if n < MIN_NUM_CTX:
+        raise ConfigError(
+            f"{key} must be at least {MIN_NUM_CTX}, got {n}. "
+            "Smaller contexts silently drop the system prompt."
+        )
+    return n
 
 
 def _parse_int(key: str, value: str) -> int:

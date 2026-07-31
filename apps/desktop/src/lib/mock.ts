@@ -27,19 +27,35 @@ const files = [
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Sessions with a pending cancel. The mock used to answer chat.cancel with a
+// bare {ok:true} and keep streaming, which made the button look like it worked
+// in dev while the real backend couldn't deliver a cancel at all. Mirror the
+// real contract instead: stop streaming and emit chat.cancelled.
+const cancelled = new Set<string>();
+
 async function simulateChat(sessionId: string, text: string): Promise<unknown> {
+  cancelled.delete(sessionId);
+  const stopped = () => {
+    if (!cancelled.has(sessionId)) return false;
+    cancelled.delete(sessionId);
+    mockEmit("chat.cancelled", { session_id: sessionId });
+    return true;
+  };
   const reply = `Looking at your question — "${text.slice(0, 40)}" — here's the plan:\n\n` +
     "```python\nimport pandas as pd\ndf = pd.read_csv(\"mrr_2026.csv\")\n" +
     'growth = (df["mrr_usd"].iloc[-1] - df["mrr_usd"].iloc[0]) / df["mrr_usd"].iloc[0] * 100\n' +
     'print(f"Total MRR growth: {growth:.2f}%")\n```\n';
   for (const word of reply.match(/\S+\s*/g) ?? []) {
+    if (stopped()) return { ok: true, cancelled: true };
     mockEmit("chat.token", { session_id: sessionId, delta: word });
     await sleep(18);
   }
   mockEmit("chat.message_done", { session_id: sessionId, role: "assistant", content: reply });
   await sleep(150);
+  if (stopped()) return { ok: true, cancelled: true };
   mockEmit("chat.run_start", { session_id: sessionId, code: "import pandas as pd ..." });
   await sleep(700);
+  if (stopped()) return { ok: true, cancelled: true };
   mockEmit("chat.run_output", {
     session_id: sessionId,
     stdout: "Total MRR growth: 96.06%\n",
@@ -51,6 +67,7 @@ async function simulateChat(sessionId: string, text: string): Promise<unknown> {
   await sleep(200);
   const summary = "MRR_USD grew by approximately **96%** from September to April.";
   for (const word of summary.match(/\S+\s*/g) ?? []) {
+    if (stopped()) return { ok: true, cancelled: true };
     mockEmit("chat.token", { session_id: sessionId, delta: word });
     await sleep(20);
   }
@@ -99,8 +116,11 @@ export async function runMock(method: Method, params: unknown): Promise<unknown>
       return simulateChat(String(p.session_id ?? "mock"), String(p.text ?? ""));
     case "chat.run_last":
       return { ok: true };
-    case "chat.cancel":
-      return { ok: true };
+    case "chat.cancel": {
+      const sid = String(p.session_id ?? "mock");
+      cancelled.add(sid);
+      return { ok: true, accepted: true };
+    }
     default:
       return {};
   }

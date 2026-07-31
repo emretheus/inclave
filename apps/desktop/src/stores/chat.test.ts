@@ -7,7 +7,13 @@ import { mockEmit } from "@/lib/ipc";
 
 describe("chat store", () => {
   beforeEach(() => {
-    useChat.setState({ items: [], busy: false, error: null, sessionId: "test-session" });
+    useChat.setState({
+      items: [],
+      busy: false,
+      cancelling: false,
+      error: null,
+      sessionId: "test-session",
+    });
   });
 
   it("assembles streamed tokens into one assistant message", () => {
@@ -62,5 +68,44 @@ describe("chat store", () => {
     const sid = useChat.getState().sessionId;
     mockEmit("chat.error", { session_id: sid, code: "ollama_unavailable", message: "down" });
     expect(useChat.getState().error).toBe("down");
+  });
+
+  // Regression: cancel() used to clear busy on the RPC reply, which the bridge
+  // returns as soon as it sets the flag — so the UI claimed it had stopped
+  // while tokens were still streaming in, and the freed busy guard let a second
+  // send race the running turn.
+  it("stays busy after a cancel request until the turn confirms it stopped", async () => {
+    const sid = useChat.getState().sessionId;
+    useChat.setState({ busy: true });
+
+    await useChat.getState().cancel();
+
+    expect(useChat.getState().busy).toBe(true);
+    expect(useChat.getState().cancelling).toBe(true);
+
+    mockEmit("chat.cancelled", { session_id: sid });
+
+    expect(useChat.getState().busy).toBe(false);
+    expect(useChat.getState().cancelling).toBe(false);
+  });
+
+  it("closes out a streaming message when the turn is cancelled", () => {
+    const sid = useChat.getState().sessionId;
+    mockEmit("chat.token", { session_id: sid, delta: "partial" });
+    expect(useChat.getState().items[0]).toMatchObject({ streaming: true });
+
+    mockEmit("chat.cancelled", { session_id: sid });
+
+    // Partial output is kept, but it must not sit there blinking forever.
+    expect(useChat.getState().items[0]).toMatchObject({
+      content: "partial",
+      streaming: false,
+    });
+  });
+
+  it("ignores a cancelled event from another session", () => {
+    useChat.setState({ busy: true, cancelling: true });
+    mockEmit("chat.cancelled", { session_id: "other" });
+    expect(useChat.getState().busy).toBe(true);
   });
 });

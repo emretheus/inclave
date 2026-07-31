@@ -1,9 +1,18 @@
 """JSON-RPC 2.0 server over stdio — the bridge sidecar entrypoint.
 
 Reads newline-delimited JSON-RPC requests on stdin, writes responses and
-streamed notifications on stdout. One request is handled at a time (the desktop
-serializes user actions per session); streaming methods emit notifications
-synchronously as they progress, then return a final result.
+streamed notifications on stdout.
+
+Most methods are handled inline on the reader thread. The *streaming* methods
+(`chat.send`, `chat.run_last`) run on a worker thread instead, because they
+block for the whole length of a turn. Handling them inline made `chat.cancel`
+undeliverable: while a turn streamed, nobody was reading stdin, so the cancel
+frame sat in the pipe buffer until the turn had already finished. Keeping the
+reader free is the entire point — `chat.cancel` is the one method in the
+protocol that is inherently out-of-band.
+
+Writes are serialized by `_write_lock`, so notifications from a worker thread
+interleave safely with responses from the reader thread.
 
 The server holds zero privileged logic of its own — it only routes to handlers,
 which call the engine. The single trust boundary stays in the engine.
@@ -57,12 +66,17 @@ def _error_data_code(exc: InClaveError) -> str:
 class BridgeServer:
     """Owns the dispatch table, the session store, and the write lock."""
 
+    #: Methods that block for the length of a turn. These run on a worker thread
+    #: so the reader stays free to accept `chat.cancel` while they stream.
+    STREAMING_METHODS = frozenset({"chat.send", "chat.run_last"})
+
     def __init__(self, out: TextIO | None = None) -> None:
         self._out = out or sys.stdout
         self._write_lock = threading.Lock()
         self._store = SessionStore()
         self._emitter = EventEmitter(self._write_frame)
         self._table = self._build_table()
+        self._workers: list[threading.Thread] = []
 
     # ------------------------------------------------------------------ #
     # Wire I/O
@@ -168,11 +182,48 @@ class BridgeServer:
             return
         self.handle_obj(obj)
 
+    def dispatch_line(self, line: str) -> None:
+        """Route one wire line, sending streaming methods to a worker thread.
+
+        `handle_line` stays synchronous so tests (and any caller that wants
+        deterministic ordering) can drive the server directly.
+        """
+        stripped = line.strip()
+        if stripped:
+            try:
+                obj = json.loads(stripped)
+            except json.JSONDecodeError:
+                obj = None
+            if (
+                isinstance(obj, dict)
+                and obj.get("method") in self.STREAMING_METHODS
+                # A malformed frame should take the normal error path inline.
+                and isinstance(obj.get("params"), dict)
+            ):
+                t = threading.Thread(
+                    target=self.handle_obj,
+                    args=(obj,),
+                    name=f"turn-{obj.get('method')}",
+                    daemon=True,
+                )
+                self._reap_workers()
+                self._workers.append(t)
+                t.start()
+                return
+        self.handle_line(line)
+
+    def _reap_workers(self) -> None:
+        self._workers = [t for t in self._workers if t.is_alive()]
+
     def serve(self, stdin: TextIO | None = None) -> int:
         src = stdin or sys.stdin
         log.debug("bridge: serving on stdio")
         for line in src:
-            self.handle_line(line)
+            self.dispatch_line(line)
+        # stdin closed: let in-flight turns finish writing before we exit, or
+        # the desktop loses the tail of the last response.
+        for t in self._workers:
+            t.join(timeout=30)
         return 0
 
 

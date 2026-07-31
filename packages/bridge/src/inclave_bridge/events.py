@@ -60,6 +60,13 @@ class EventEmitter:
     def chat_turn_done(self, session_id: str, n_turns: int) -> None:
         self._send("chat.turn_done", {"session_id": session_id, "n_turns": n_turns})
 
+    def chat_cancelled(self, session_id: str) -> None:
+        """Emitted when a turn actually stops early. The reply to `chat.cancel`
+        only means "the request was received" — this is the confirmation that
+        generation stopped, so the UI can clear its busy state honestly.
+        """
+        self._send("chat.cancelled", {"session_id": session_id})
+
     def chat_error(self, session_id: str, code: str, message: str) -> None:
         self._send(
             "chat.error",

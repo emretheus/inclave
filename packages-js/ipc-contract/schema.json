@@ -225,6 +225,13 @@
       "description": "The whole turn (incl. auto-run loop) completed."
     },
     {
+      "name": "chat.cancelled",
+      "payload": {
+        "session_id": "string"
+      },
+      "description": "A turn stopped early because chat.cancel was requested. This \u2014 not the reply to chat.cancel \u2014 is the signal that generation actually stopped."
+    },
+    {
       "name": "chat.error",
       "payload": {
         "session_id": "string",

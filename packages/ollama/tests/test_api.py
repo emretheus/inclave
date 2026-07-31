@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import ollama
 import pytest
+from inclave_core.config import load_config
 from inclave_ollama.api import (
     generate,
     get_default,
@@ -66,7 +67,9 @@ def test_generate_success(mock_chat: MagicMock) -> None:
     assert result == "Hello from mock!"
 
     mock_chat.assert_called_once_with(
-        model="llama3", messages=[{"role": "user", "content": "Say hello"}]
+        model="llama3",
+        messages=[{"role": "user", "content": "Say hello"}],
+        options={"num_ctx": load_config().num_ctx},
     )
 
 
@@ -183,8 +186,13 @@ def test_stream_success(mock_chat: MagicMock) -> None:
     assert chunks[1] == " from"
     assert chunks[2] == " stream!"
 
+    # options.num_ctx must be present: without it Ollama applies its own small
+    # default context and silently front-truncates the prompt.
     mock_chat.assert_called_once_with(
-        model="llama3", messages=[{"role": "user", "content": "Say hello"}], stream=True
+        model="llama3",
+        messages=[{"role": "user", "content": "Say hello"}],
+        stream=True,
+        options={"num_ctx": load_config().num_ctx},
     )
 
 

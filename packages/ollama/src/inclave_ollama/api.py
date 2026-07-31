@@ -122,7 +122,9 @@ def generate(prompt: str, *, model: str | None = None, system: str | None = None
     messages.append({"role": "user", "content": prompt})
 
     try:
-        response = ollama.chat(model=model, messages=messages)
+        response = ollama.chat(
+            model=model, messages=messages, options={"num_ctx": load_config().num_ctx}
+        )
         content = response.get("message", {}).get("content", "")
         return str(content)
     except (httpx.ConnectError, ConnectionError) as e:
@@ -145,7 +147,10 @@ def stream(prompt: str, model: str = "") -> Iterator[str]:
 
     try:
         response_stream = ollama.chat(
-            model=model, messages=[{"role": "user", "content": prompt}], stream=True
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+            options={"num_ctx": load_config().num_ctx},
         )
 
         for chunk in response_stream:
